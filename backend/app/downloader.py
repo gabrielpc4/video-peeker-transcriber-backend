@@ -71,6 +71,11 @@ def download_with_ytdlp(
         output_template,
     ]
 
+    # YouTube now often requires a JS runtime to solve "n" challenges / signature logic.
+    # If node is available, allow yt-dlp to use it.
+    if is_youtube and shutil.which("node") is not None:
+        command_args.extend(["--js-runtimes", "node"])
+
     # Only use Instagram cookies for Instagram URLs.
     # Also, yt-dlp may try to save cookies back to the provided jar path. To avoid
     # write errors (e.g. read-only mounts) and avoid mutating the source file,
