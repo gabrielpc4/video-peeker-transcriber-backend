@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shutil
 from dataclasses import dataclass
 
 
@@ -14,10 +15,25 @@ def ensure_directory_exists(directory_path: str) -> None:
 
 
 def run_command(command_args: list[str]) -> None:
+    if len(command_args) == 0:
+        raise RuntimeError("Command is empty.")
+
+    executable_name = command_args[0]
+    resolved_executable = shutil.which(executable_name)
+    if resolved_executable is None:
+        raise RuntimeError(
+            f"Missing dependency: '{executable_name}'.\n\n"
+            "Install it and try again.\n\n"
+            "macOS (Homebrew):\n"
+            f"  brew install {executable_name}\n\n"
+            "Or (pip):\n"
+            f"  pip install {executable_name}\n"
+        )
+
     command_text = " ".join(command_args)
 
     completed = subprocess.run(
-        command_args,
+        [resolved_executable] + command_args[1:],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
