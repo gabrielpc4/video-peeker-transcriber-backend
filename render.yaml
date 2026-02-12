@@ -20,4 +20,6 @@ services:
         value: /app/data/videopeek.sqlite
       - key: INSTAGRAM_COOKIES_PATH
         value: /app/secrets/instagram_cookies.txt
+      - key: YOUTUBE_COOKIES_PATH
+        value: /app/secrets/youtube_cookies.txt
 

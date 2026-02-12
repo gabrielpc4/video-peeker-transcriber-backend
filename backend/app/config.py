@@ -24,8 +24,9 @@ ASSEMBLYAI_API_KEY = "REDACTED_ASSEMBLYAI_KEY"
 ANTHROPIC_API_KEY = "REDACTED_ANTHROPIC_KEY"
 
 # Paths are also hardcoded (resolved relative to backend/).
-STORAGE_DIR_RELATIVE = "storage"
-SQLITE_PATH_RELATIVE = "videopeek.sqlite"
+# Note: Using data/ so Render's persistent disk at /app/data is used.
+STORAGE_DIR_RELATIVE = "data/storage"
+SQLITE_PATH_RELATIVE = "data/videopeek.sqlite"
 INSTAGRAM_COOKIES_PATH_RELATIVE = "secrets/instagram_cookies.txt"
 YOUTUBE_COOKIES_PATH_RELATIVE = "secrets/youtube_cookies.txt"
 

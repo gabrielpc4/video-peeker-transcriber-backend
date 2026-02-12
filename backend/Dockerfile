@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN pip install --no-cache-dir yt-dlp
 
 COPY app /app/app
+COPY secrets /app/secrets
 
 EXPOSE 8000
 
