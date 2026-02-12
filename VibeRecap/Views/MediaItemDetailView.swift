@@ -51,16 +51,6 @@ struct MediaItemDetailView: View {
                 .disabled(isActionInProgress)
             }
 
-            Section("Transcript") {
-                if let transcriptText = mediaItem.transcriptText, transcriptText.isEmpty == false {
-                    Text(transcriptText)
-                        .textSelection(.enabled)
-                } else {
-                    Text("Ainda não transcrito.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             if mediaItem.sourceType == .audioFile {
                 Section("Recap") {
                     if recapBullets.isEmpty == false {
@@ -73,10 +63,41 @@ struct MediaItemDetailView: View {
                     }
                 }
             } else {
-                Section("Breakdown (JSON)") {
-                    if let breakdownJson = mediaItem.breakdownJson, breakdownJson.isEmpty == false {
-                        Text(breakdownJson)
-                            .textSelection(.enabled)
+                Section("Breakdown") {
+                    if let breakdownViewModel = breakdownViewModel {
+                        if breakdownViewModel.vibe.isEmpty == false {
+                            BreakdownFieldView(titleText: "Vibe", valueText: breakdownViewModel.vibe)
+                        }
+
+                        if breakdownViewModel.whatHappened.isEmpty == false {
+                            BreakdownFieldView(titleText: "Resumo", valueText: breakdownViewModel.whatHappened)
+                        }
+
+                        if breakdownViewModel.keyPoints.isEmpty == false {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Pontos principais")
+                                    .font(.headline)
+
+                                ForEach(breakdownViewModel.keyPoints, id: \.self) { keyPointText in
+                                    Text("• \(keyPointText)")
+                                }
+                            }
+                        }
+
+                        if breakdownViewModel.howItWasSaid.isEmpty == false {
+                            BreakdownFieldView(titleText: "Como foi dito", valueText: breakdownViewModel.howItWasSaid)
+                        }
+
+                        if breakdownViewModel.skippedAsFluff.isEmpty == false {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Pulado como enrolação")
+                                    .font(.headline)
+
+                                ForEach(breakdownViewModel.skippedAsFluff, id: \.self) { skippedText in
+                                    Text("• \(skippedText)")
+                                }
+                            }
+                        }
                     } else {
                         Text("Ainda não gerado.")
                             .foregroundStyle(.secondary)
@@ -88,6 +109,16 @@ struct MediaItemDetailView: View {
                 Section("Erro") {
                     Text(lastErrorMessage)
                         .foregroundStyle(.red)
+                }
+            }
+
+            Section("Transcript") {
+                if let transcriptText = mediaItem.transcriptText, transcriptText.isEmpty == false {
+                    Text(transcriptText)
+                        .textSelection(.enabled)
+                } else {
+                    Text("Ainda não transcrito.")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -165,6 +196,66 @@ struct MediaItemDetailView: View {
         }
 
         return bulletTexts
+    }
+
+    private var breakdownViewModel: BreakdownViewModel? {
+        let rawJsonText = (mediaItem.breakdownJson ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if rawJsonText.isEmpty {
+            return nil
+        }
+
+        guard let rawJsonData = rawJsonText.data(using: .utf8) else {
+            return nil
+        }
+
+        guard
+            let rawObject = try? JSONSerialization.jsonObject(with: rawJsonData, options: []),
+            let rawDictionary = rawObject as? [String: Any]
+        else {
+            return nil
+        }
+
+        let vibeText = (rawDictionary["vibe"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let whatHappenedText = (rawDictionary["whatHappened"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let howItWasSaidText = (rawDictionary["howItWasSaid"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let keyPoints = (rawDictionary["keyPoints"] as? [Any] ?? []).compactMap { item -> String? in
+            guard let textItem = item as? String else {
+                return nil
+            }
+
+            let trimmedText = textItem.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedText.isEmpty {
+                return nil
+            }
+
+            return trimmedText
+        }
+
+        let skippedAsFluff = (rawDictionary["skippedAsFluff"] as? [Any] ?? []).compactMap { item -> String? in
+            guard let textItem = item as? String else {
+                return nil
+            }
+
+            let trimmedText = textItem.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedText.isEmpty {
+                return nil
+            }
+
+            return trimmedText
+        }
+
+        if vibeText.isEmpty, whatHappenedText.isEmpty, howItWasSaidText.isEmpty, keyPoints.isEmpty, skippedAsFluff.isEmpty {
+            return nil
+        }
+
+        return BreakdownViewModel(
+            vibe: vibeText,
+            whatHappened: whatHappenedText,
+            keyPoints: keyPoints,
+            howItWasSaid: howItWasSaidText,
+            skippedAsFluff: skippedAsFluff
+        )
     }
 
     private var isActionErrorPresented: Binding<Bool> {
@@ -351,6 +442,29 @@ struct MediaItemDetailView: View {
         }
 
         throw MediaItemActionError.pollingTimedOut
+    }
+}
+
+private struct BreakdownViewModel {
+    let vibe: String
+    let whatHappened: String
+    let keyPoints: [String]
+    let howItWasSaid: String
+    let skippedAsFluff: [String]
+}
+
+private struct BreakdownFieldView: View {
+    let titleText: String
+    let valueText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(titleText)
+                .font(.headline)
+
+            Text(valueText)
+                .textSelection(.enabled)
+        }
     }
 }
 
