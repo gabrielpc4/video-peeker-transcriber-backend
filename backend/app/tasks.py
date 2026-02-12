@@ -19,6 +19,7 @@ def run_transcription_job(
     item_repository: ItemRepository,
     storage_dir: str,
     instagram_cookies_path: str,
+    youtube_cookies_path: str,
     assemblyai_api_key: str,
     anthropic_api_key: str,
     extended_output: bool = False,
@@ -49,6 +50,7 @@ def run_transcription_job(
                 output_dir=storage_dir,
                 item_id=item_id,
                 instagram_cookies_path=instagram_cookies_path,
+                youtube_cookies_path=youtube_cookies_path,
             )
             try:
                 size_bytes = os.path.getsize(raw_media_path)

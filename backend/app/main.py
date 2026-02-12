@@ -83,6 +83,7 @@ def create_app() -> FastAPI:
             item_repository=item_repository,
             storage_dir=config.storage_dir,
             instagram_cookies_path=config.instagram_cookies_path,
+                youtube_cookies_path=config.youtube_cookies_path,
             assemblyai_api_key=config.assemblyai_api_key,
             anthropic_api_key=config.anthropic_api_key,
             extended_output=extended_output,

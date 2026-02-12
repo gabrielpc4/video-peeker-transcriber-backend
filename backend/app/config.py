@@ -11,6 +11,7 @@ class AppConfig:
     sqlite_path: str
 
     instagram_cookies_path: str
+    youtube_cookies_path: str
 
 
 #
@@ -26,6 +27,7 @@ ANTHROPIC_API_KEY = "REDACTED_ANTHROPIC_KEY"
 STORAGE_DIR_RELATIVE = "storage"
 SQLITE_PATH_RELATIVE = "videopeek.sqlite"
 INSTAGRAM_COOKIES_PATH_RELATIVE = "secrets/instagram_cookies.txt"
+YOUTUBE_COOKIES_PATH_RELATIVE = "secrets/youtube_cookies.txt"
 
 
 def load_config() -> AppConfig:
@@ -36,6 +38,7 @@ def load_config() -> AppConfig:
     storage_dir = str((backend_directory / STORAGE_DIR_RELATIVE).resolve())
     sqlite_path = str((backend_directory / SQLITE_PATH_RELATIVE).resolve())
     instagram_cookies_path = str((backend_directory / INSTAGRAM_COOKIES_PATH_RELATIVE).resolve())
+    youtube_cookies_path = str((backend_directory / YOUTUBE_COOKIES_PATH_RELATIVE).resolve())
 
     if assemblyai_api_key == "":
         raise RuntimeError("Missing ASSEMBLYAI_API_KEY (hardcoded).")
@@ -49,5 +52,6 @@ def load_config() -> AppConfig:
         storage_dir=storage_dir,
         sqlite_path=sqlite_path,
         instagram_cookies_path=instagram_cookies_path,
+        youtube_cookies_path=youtube_cookies_path,
     )
 
