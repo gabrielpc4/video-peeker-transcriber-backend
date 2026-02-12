@@ -116,18 +116,24 @@ def download_with_ytdlp(
 
     command_args.append(source_url)
 
+    def _with_remote_components(args: list[str], value: str) -> list[str]:
+        out = list(args)
+        for idx in range(len(out) - 1):
+            if out[idx] == "--remote-components":
+                out[idx + 1] = value
+                return out
+        # If not present, append it (shouldn't happen, but keeps it robust)
+        out.insert(len(out) - 1, "--remote-components")
+        out.insert(len(out) - 1, value)
+        return out
+
     try:
         run_command(command_args)
     except Exception as first_error:
         # YouTube fallback: if GitHub downloads are blocked/unavailable, try npm-based
         # remote components (works with Deno).
         if is_youtube:
-            retry_args = [arg for arg in command_args if arg != "ejs:github"]
-            # Replace "--remote-components ejs:github" with "--remote-components ejs:npm"
-            for idx in range(len(retry_args) - 1):
-                if retry_args[idx] == "--remote-components" and retry_args[idx + 1] == "ejs:github":
-                    retry_args[idx + 1] = "ejs:npm"
-                    break
+            retry_args = _with_remote_components(command_args, "ejs:npm")
             try:
                 run_command(retry_args)
             except Exception:

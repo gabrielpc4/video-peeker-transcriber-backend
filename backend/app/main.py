@@ -101,6 +101,7 @@ def create_app() -> FastAPI:
             "deno_version": run_version(["deno", "--version"]) if which("deno") else None,
             "node_path": which("node"),
             "node_version": run_version(["node", "--version"]) if which("node") else None,
+            "path_env": os.getenv("PATH"),
         }
 
     @app.post("/items", response_model=CreateItemResponse)

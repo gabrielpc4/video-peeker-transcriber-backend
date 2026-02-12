@@ -12,9 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # JS runtime for yt-dlp EJS (recommended)
 # Minimum supported Deno version (per yt-dlp docs): 2.0.0
-RUN curl -fsSL https://deno.land/install.sh | sh -s v2.0.0
-ENV DENO_INSTALL=/root/.deno
-ENV PATH="$DENO_INSTALL/bin:$PATH"
+RUN set -e; \
+    arch="$(uname -m)"; \
+    if [ "$arch" = "x86_64" ]; then deno_arch="x86_64-unknown-linux-gnu"; \
+    elif [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then deno_arch="aarch64-unknown-linux-gnu"; \
+    else echo "Unsupported arch for deno: $arch" && exit 1; fi; \
+    url="https://github.com/denoland/deno/releases/download/v2.0.0/deno-${deno_arch}.zip"; \
+    curl -fsSL "$url" -o /tmp/deno.zip; \
+    unzip -q /tmp/deno.zip -d /usr/local/bin; \
+    chmod +x /usr/local/bin/deno; \
+    rm -f /tmp/deno.zip
 
 # Python deps
 COPY requirements.txt /app/requirements.txt
@@ -28,5 +35,5 @@ COPY secrets /app/secrets
 
 EXPOSE 8000
 
-CMD ["sh", "-lc", "exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "-m", "app.serve"]
 
