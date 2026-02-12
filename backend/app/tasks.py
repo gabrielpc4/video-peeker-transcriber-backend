@@ -149,14 +149,16 @@ def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_
     if record is None:
         raise RuntimeError("Item not found.")
 
+    transcript_text = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
+
     if record.source_type != "url":
         raise RuntimeError("Summary is only supported for URL items.")
 
     if record.summary_status == "running":
         return
 
-    transcript_text = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
     if transcript_text == "":
+        item_repository.set_summary_failed(item_id=item_id, error_message="Missing transcript_text. Run transcription first.")
         raise RuntimeError("Missing transcript_text. Run transcription first.")
 
     item_repository.set_summary_running(item_id)

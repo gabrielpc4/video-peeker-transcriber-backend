@@ -126,10 +126,11 @@ def create_app() -> FastAPI:
         if record is None:
             raise HTTPException(status_code=404, detail="Item not found.")
 
+        transcript_for_summary = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
+
         if record.source_type != "url":
             raise HTTPException(status_code=400, detail="Summary is only supported for URL items.")
 
-        transcript_for_summary = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
         if transcript_for_summary == "":
             raise HTTPException(status_code=400, detail="Missing transcript_text. Run transcription first.")
 
