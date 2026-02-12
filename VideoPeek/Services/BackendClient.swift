@@ -147,6 +147,15 @@ struct BackendClient {
         return try JSONDecoder().decode(ItemResponse.self, from: data)
     }
 
+    func deleteItem(itemId: String) async throws {
+        let url = baseUrl.appendingPathComponent("items/\(itemId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        let (data, response) = try await urlSession.data(for: request)
+        try validateHttpResponse(response: response, data: data)
+    }
+
     private func validateHttpResponse(response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw BackendClientError.invalidResponse

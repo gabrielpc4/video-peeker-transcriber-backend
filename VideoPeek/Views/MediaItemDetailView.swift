@@ -10,6 +10,7 @@ import SwiftData
 
 struct MediaItemDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @Bindable var mediaItem: MediaItem
 
@@ -21,6 +22,7 @@ struct MediaItemDetailView: View {
 
     @State private var hasTriggeredAutoTranscription = false
     @State private var selectedTranscriptVersion = TranscriptVersion.enhanced
+    @State private var isDeleteConfirmationPresented = false
 
     @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
     @AppStorage("useExtendedOutput") private var useExtendedOutput = false
@@ -185,12 +187,30 @@ struct MediaItemDetailView: View {
         }
         .navigationTitle(navigationTitleText)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    isDeleteConfirmationPresented = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(isActionInProgress)
+            }
+        }
         .alert("Erro", isPresented: isActionErrorPresented) {
             Button("OK") {
                 actionErrorMessage = nil
             }
         } message: {
             Text(actionErrorMessage ?? "")
+        }
+        .alert("Deletar item?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Deletar", role: .destructive) {
+                deleteItem()
+            }
+        } message: {
+            Text("Isso vai remover este item do app e também apagar os dados no servidor.")
         }
         .task(id: shouldStartTranscriptionOnAppear) {
             await autoStartTranscriptionIfNeeded()
@@ -482,6 +502,55 @@ struct MediaItemDetailView: View {
                 actionErrorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func deleteItem() {
+        if isActionInProgress {
+            return
+        }
+
+        isActionInProgress = true
+        currentActionTitle = "Delete"
+        actionErrorMessage = nil
+
+        Task { @MainActor in
+            defer {
+                isActionInProgress = false
+                currentActionTitle = nil
+            }
+
+            do {
+                try await deleteItemOnServerIfPossible()
+                deleteLocalMediaFileIfPossible()
+                modelContext.delete(mediaItem)
+                try modelContext.save()
+                dismiss()
+            } catch {
+                actionErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteLocalMediaFileIfPossible() {
+        if mediaItem.sourceType != .audioFile {
+            return
+        }
+
+        do {
+            let fileUrl = try resolveLocalAudioFileUrl()
+            try? FileManager.default.removeItem(at: fileUrl)
+        } catch {
+            // Best-effort local cleanup only.
+        }
+    }
+
+    private func deleteItemOnServerIfPossible() async throws {
+        guard let remoteId = mediaItem.remoteItemIdentifier, remoteId.isEmpty == false else {
+            return
+        }
+
+        let client = BackendClient(baseUrl: try backendBaseUrl())
+        try await client.deleteItem(itemId: remoteId)
     }
 
     private func backendBaseUrl() throws -> URL {

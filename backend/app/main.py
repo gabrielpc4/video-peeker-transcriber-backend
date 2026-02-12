@@ -1,4 +1,5 @@
 import os
+import uuid
 from typing import Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
@@ -58,11 +59,12 @@ def create_app() -> FastAPI:
         if safe_extension == "":
             safe_extension = ".bin"
 
-        temporary_path = os.path.join(config.storage_dir, f"upload-temp{safe_extension}")
+        item_id = str(uuid.uuid4())
+        temporary_path = os.path.join(config.storage_dir, f"{item_id}-upload{safe_extension}")
         with open(temporary_path, "wb") as output_handle:
             output_handle.write(content)
 
-        item_id = item_repository.create_upload_item(local_media_path=temporary_path)
+        item_repository.create_upload_item_with_id(item_id=item_id, local_media_path=temporary_path)
         return CreateItemResponse(item_id=item_id)
 
     @app.post("/items/{item_id}/transcribe", response_model=ItemResponse)
@@ -159,6 +161,34 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Item not found.")
 
         return item_repository.to_response(record)
+
+    @app.delete("/items/{item_id}")
+    def delete_item(item_id: str) -> dict[str, bool]:
+        record = item_repository.get_item(item_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Item not found.")
+
+        # Best-effort delete of associated files.
+        try:
+            for filename in os.listdir(config.storage_dir):
+                if filename.startswith(item_id):
+                    try:
+                        os.remove(os.path.join(config.storage_dir, filename))
+                    except Exception:
+                        pass
+
+            if record.local_media_path:
+                try:
+                    if os.path.exists(record.local_media_path):
+                        os.remove(record.local_media_path)
+                except Exception:
+                    pass
+        except Exception:
+            # Do not block DB deletion if storage cleanup fails.
+            pass
+
+        deleted = item_repository.delete_item(item_id)
+        return {"deleted": deleted}
 
     return app
 

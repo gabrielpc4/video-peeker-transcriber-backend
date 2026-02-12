@@ -114,6 +114,44 @@ class ItemRepository:
 
         return item_id
 
+    def create_upload_item_with_id(self, *, item_id: str, local_media_path: str) -> str:
+        created_at_iso = now_iso()
+
+        with self._database.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO items (
+                  item_id, created_at_iso, source_type, source_url, local_media_path,
+                  title_text,
+                  transcription_status, enhanced_transcript_status, summary_status, breakdown_status,
+                  detected_language, transcript_text, enhanced_transcript_text, enhanced_transcript_error, summary_json, breakdown_json,
+                  last_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    created_at_iso,
+                    "upload",
+                    None,
+                    local_media_path,
+                    None,
+                    "pending",
+                    "pending",
+                    "pending",
+                    "pending",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
+            )
+            connection.commit()
+
+        return item_id
+
     def get_item(self, item_id: str) -> ItemRecord | None:
         with self._database.connect() as connection:
             row = connection.execute("SELECT * FROM items WHERE item_id = ?", (item_id,)).fetchone()
@@ -242,4 +280,10 @@ class ItemRepository:
         with self._database.connect() as connection:
             connection.execute(query_text, values)
             connection.commit()
+
+    def delete_item(self, item_id: str) -> bool:
+        with self._database.connect() as connection:
+            cursor = connection.execute("DELETE FROM items WHERE item_id = ?", (item_id,))
+            connection.commit()
+            return cursor.rowcount > 0
 
