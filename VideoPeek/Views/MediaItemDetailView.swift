@@ -658,8 +658,17 @@ struct MediaItemDetailView: View {
     }
 
     private func transcribe() async throws {
+        let startedAt = Date()
+        func log(_ message: String) {
+            let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+            let remoteId = (mediaItem.remoteItemIdentifier ?? mediaItem.importedItemIdentifier)
+            print("[VideoPeek][\(remoteId)] +\(ms)ms \(message)")
+        }
+
         let client = BackendClient(baseUrl: try backendBaseUrl())
+        log("transcribe: ensureRemoteItemExists start")
         let itemId = try await ensureRemoteItemExists(client: client)
+        log("transcribe: ensureRemoteItemExists done itemId=\(itemId)")
 
         await syncTitleFromBackendIfNeeded(client: client, itemId: itemId)
 
@@ -670,19 +679,38 @@ struct MediaItemDetailView: View {
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
+        log("transcribe: startTranscription request")
         _ = try await client.startTranscription(itemId: itemId, extendedOutput: useExtendedOutput)
-        let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "transcription")
-        let enhancedResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "enhanced_transcript")
+        log("transcribe: polling transcription")
+        let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "transcription", log: log)
 
         mediaItem.transcriptionStatusRaw = finalResponse.transcription_status
         mediaItem.detectedLanguage = finalResponse.detected_language
         mediaItem.transcriptText = finalResponse.transcript_text
         mediaItem.lastErrorMessage = finalResponse.last_error
-
-        mediaItem.enhancedTranscriptStatusRaw = enhancedResponse.enhanced_transcript_status
-        mediaItem.enhancedTranscriptText = enhancedResponse.enhanced_transcript_text
-        mediaItem.enhancedTranscriptErrorMessage = enhancedResponse.enhanced_transcript_error
         try modelContext.save()
+
+        log("transcribe: done transcription=\(finalResponse.transcription_status)")
+
+        if mediaItem.sourceType == .url {
+            // Do not block the "Transcrevendo..." UI on speaker enhancement.
+            // We keep polling in the background and update the UI when ready.
+            Task { @MainActor in
+                do {
+                    log("transcribe: background polling enhanced_transcript")
+                    let enhancedResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "enhanced_transcript", log: log)
+                    mediaItem.enhancedTranscriptStatusRaw = enhancedResponse.enhanced_transcript_status
+                    mediaItem.enhancedTranscriptText = enhancedResponse.enhanced_transcript_text
+                    mediaItem.enhancedTranscriptErrorMessage = enhancedResponse.enhanced_transcript_error
+                    mediaItem.lastErrorMessage = enhancedResponse.last_error ?? mediaItem.lastErrorMessage
+                    try modelContext.save()
+                    log("transcribe: enhanced_transcript finished status=\(enhancedResponse.enhanced_transcript_status)")
+                } catch {
+                    // Best-effort only; UI already shows enhanced error when available.
+                    log("transcribe: enhanced_transcript polling failed: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private func breakdown() async throws {
@@ -707,22 +735,38 @@ struct MediaItemDetailView: View {
         try modelContext.save()
     }
 
-    private func pollUntilFinished(itemId: String, client: BackendClient, kind: String) async throws -> BackendClient.ItemResponse {
+    private func pollUntilFinished(
+        itemId: String,
+        client: BackendClient,
+        kind: String,
+        log: ((String) -> Void)? = nil
+    ) async throws -> BackendClient.ItemResponse {
         var remainingAttempts = 120
+        let startedAt = Date()
 
         while remainingAttempts > 0 {
             let response = try await client.getItem(itemId: itemId)
+            if remainingAttempts % 10 == 0 {
+                let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                log?("poll[\(kind)] +\(ms)ms status t=\(response.transcription_status) e=\(response.enhanced_transcript_status) s=\(response.summary_status) b=\(response.breakdown_status)")
+            }
 
             if kind == "transcription" {
                 if response.transcription_status == JobStatus.completed.rawValue {
+                    let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                    log?("poll[\(kind)] completed +\(ms)ms")
                     return response
                 }
 
                 if response.transcription_status == JobStatus.failed.rawValue {
+                    let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                    log?("poll[\(kind)] failed +\(ms)ms")
                     return response
                 }
             } else if kind == "enhanced_transcript" {
                 if response.source_type != MediaSourceType.url.rawValue {
+                    let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                    log?("poll[\(kind)] skipped (not url) +\(ms)ms")
                     return response
                 }
 
@@ -730,10 +774,14 @@ struct MediaItemDetailView: View {
                     // Wait until transcription is done, then enhancement can start.
                 } else {
                     if response.enhanced_transcript_status == JobStatus.completed.rawValue {
+                        let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                        log?("poll[\(kind)] completed +\(ms)ms")
                         return response
                     }
 
                     if response.enhanced_transcript_status == JobStatus.failed.rawValue {
+                        let ms = Int(Date().timeIntervalSince(startedAt) * 1000)
+                        log?("poll[\(kind)] failed +\(ms)ms")
                         return response
                     }
                 }

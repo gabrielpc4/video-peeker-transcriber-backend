@@ -1,8 +1,5 @@
-import os
 from pathlib import Path
 from dataclasses import dataclass
-
-from dotenv import load_dotenv
 
 
 @dataclass(frozen=True)
@@ -16,48 +13,35 @@ class AppConfig:
     instagram_cookies_path: str
 
 
-def _resolve_path_relative_to_backend_dir(backend_directory: Path, raw_value: str) -> str:
-    trimmed = raw_value.strip()
-    if trimmed == "":
-        return str(backend_directory)
+#
+# WARNING
+# -------
+# Secrets are intentionally hardcoded here by explicit user request.
 
-    candidate = Path(trimmed)
-    if candidate.is_absolute():
-        return str(candidate)
+#
+ASSEMBLYAI_API_KEY = "REDACTED_ASSEMBLYAI_KEY"
+ANTHROPIC_API_KEY = "REDACTED_ANTHROPIC_KEY"
 
-    # If user passes "backend/..." we treat it as relative to the repo root (parent of backend/).
-    # Otherwise treat it as relative to the backend/ directory.
-    if trimmed.startswith("backend/") or trimmed.startswith("backend\\"):
-        return str((backend_directory.parent / candidate).resolve())
-
-    return str((backend_directory / candidate).resolve())
+# Paths are also hardcoded (resolved relative to backend/).
+STORAGE_DIR_RELATIVE = "storage"
+SQLITE_PATH_RELATIVE = "videopeek.sqlite"
+INSTAGRAM_COOKIES_PATH_RELATIVE = "secrets/instagram_cookies.txt"
 
 
 def load_config() -> AppConfig:
     backend_directory = Path(__file__).resolve().parents[1]
-    dotenv_path = backend_directory / ".env"
+    assemblyai_api_key = ASSEMBLYAI_API_KEY.strip()
+    anthropic_api_key = ANTHROPIC_API_KEY.strip()
 
-    load_dotenv(dotenv_path=dotenv_path, override=False)
-
-    assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY", "").strip()
-    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-
-    default_storage_dir = str((backend_directory / "storage").resolve())
-    default_sqlite_path = str((backend_directory / "videopeek.sqlite").resolve())
-
-    storage_dir = _resolve_path_relative_to_backend_dir(backend_directory, os.getenv("STORAGE_DIR", default_storage_dir))
-    sqlite_path = _resolve_path_relative_to_backend_dir(backend_directory, os.getenv("SQLITE_PATH", default_sqlite_path))
-
-    default_instagram_cookies_path = str((backend_directory / "secrets" / "instagram_cookies.txt").resolve())
-    instagram_cookies_path = _resolve_path_relative_to_backend_dir(
-        backend_directory, os.getenv("INSTAGRAM_COOKIES_PATH", default_instagram_cookies_path)
-    )
+    storage_dir = str((backend_directory / STORAGE_DIR_RELATIVE).resolve())
+    sqlite_path = str((backend_directory / SQLITE_PATH_RELATIVE).resolve())
+    instagram_cookies_path = str((backend_directory / INSTAGRAM_COOKIES_PATH_RELATIVE).resolve())
 
     if assemblyai_api_key == "":
-        raise RuntimeError("Missing ASSEMBLYAI_API_KEY in environment.")
+        raise RuntimeError("Missing ASSEMBLYAI_API_KEY (hardcoded).")
 
     if anthropic_api_key == "":
-        raise RuntimeError("Missing ANTHROPIC_API_KEY in environment.")
+        raise RuntimeError("Missing ANTHROPIC_API_KEY (hardcoded).")
 
     return AppConfig(
         assemblyai_api_key=assemblyai_api_key,

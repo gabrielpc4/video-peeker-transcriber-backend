@@ -69,11 +69,16 @@ def download_with_ytdlp(
         output_template,
     ]
 
-    # Prefer explicit cookies file (works on servers). For local dev, we can fall back to Chrome.
-    has_cookies_file = os.path.exists(instagram_cookies_path)
-    if has_cookies_file:
-        command_args.extend(["--cookies", instagram_cookies_path])
+    # Only use Instagram cookies for Instagram URLs.
+    # Also, yt-dlp may try to save cookies back to the provided jar path. To avoid
+    # write errors (e.g. read-only mounts) and avoid mutating the source file,
+    # we pass a per-item copy stored in output_dir (writable).
+    if is_instagram and os.path.exists(instagram_cookies_path):
+        cookie_jar_copy_path = os.path.join(output_dir, f"{item_id}-cookies.txt")
+        shutil.copyfile(instagram_cookies_path, cookie_jar_copy_path)
+        command_args.extend(["--cookies", cookie_jar_copy_path])
     elif is_instagram:
+        # Local dev fallback (requires Chrome on host).
         command_args.extend(["--cookies-from-browser", "chrome"])
 
     command_args.append(source_url)

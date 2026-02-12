@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 from .anthropic_client import AnthropicClient
 from .assemblyai_client import AssemblyAiClient
@@ -31,27 +32,42 @@ def run_transcription_job(
 
     item_repository.set_transcription_running(item_id)
 
+    started_at = time.monotonic()
+
+    def log_step(message: str) -> None:
+        elapsed = time.monotonic() - started_at
+        print(f"[transcribe:{item_id}] +{elapsed:0.2f}s {message}", flush=True)
+
     try:
+        log_step(f"start source_type={record.source_type}")
         raw_media_path: str
 
         if record.source_type == "url":
+            log_step("downloading media via yt-dlp")
             raw_media_path = download_with_ytdlp(
                 source_url=record.source_url or "",
                 output_dir=storage_dir,
                 item_id=item_id,
                 instagram_cookies_path=instagram_cookies_path,
             )
+            try:
+                size_bytes = os.path.getsize(raw_media_path)
+                log_step(f"downloaded {raw_media_path} ({size_bytes} bytes)")
+            except Exception:
+                log_step(f"downloaded {raw_media_path}")
         else:
             if record.local_media_path is None:
                 raise RuntimeError("Upload item missing local_media_path.")
 
             raw_media_path = record.local_media_path
+            log_step(f"using uploaded media {raw_media_path}")
 
         extracted_audio_path: str
 
         if record.source_type == "upload":
             # Why: WhatsApp voice notes are already audio; keep max fidelity and save time.
             if _looks_like_video_file(raw_media_path):
+                log_step("extracting audio from uploaded video via ffmpeg")
                 extracted_audio_path = extract_audio_with_ffmpeg(
                     input_path=raw_media_path,
                     output_dir=storage_dir,
@@ -62,6 +78,7 @@ def run_transcription_job(
         else:
             # Why: diarization quality can drop a lot if we downmix to mono.
             # Still keep it relatively small (AAC 96k), but preserve stereo cues.
+            log_step("extracting audio via ffmpeg (stereo, 96k)")
             extracted_audio_path = extract_audio_with_ffmpeg(
                 input_path=raw_media_path,
                 output_dir=storage_dir,
@@ -72,10 +89,14 @@ def run_transcription_job(
             )
 
         assembly_client = AssemblyAiClient(api_key=assemblyai_api_key)
+        log_step("uploading audio to AssemblyAI")
         upload_url = assembly_client.upload_file(extracted_audio_path)
         enable_speaker_labels = record.source_type == "url"
+        log_step(f"creating transcript (speaker_labels={enable_speaker_labels})")
         transcript_id = assembly_client.create_transcript(upload_url, speaker_labels=enable_speaker_labels)
+        log_step(f"polling transcript id={transcript_id}")
         transcript_result = assembly_client.poll_transcript(transcript_id)
+        log_step("transcript completed")
 
         item_repository.set_transcription_completed(
             item_id=item_id,
@@ -88,11 +109,13 @@ def run_transcription_job(
                 item_repository.set_enhanced_transcript_running(item_id)
 
                 anthropic_client = AnthropicClient(api_key=anthropic_api_key)
+                log_step("enhancing transcript speakers via Claude")
                 enhanced = anthropic_client.enhance_transcript_speakers(
                     transcript_text=transcript_result.transcript_text,
                     detected_language=transcript_result.detected_language_code,
                     extended_output=extended_output,
                 )
+                log_step("enhanced transcript completed")
 
                 item_repository.set_enhanced_transcript_completed(
                     item_id=item_id,
@@ -100,8 +123,10 @@ def run_transcription_job(
                 )
             except Exception as error:
                 item_repository.set_enhanced_transcript_failed(item_id=item_id, error_message=str(error))
+                log_step(f"enhanced transcript failed: {error}")
     except Exception as error:
         item_repository.set_transcription_failed(item_id=item_id, error_message=str(error))
+        log_step(f"transcription failed: {error}")
         raise
 
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -16,7 +17,6 @@ struct ContentView: View {
     @Query(sort: \MediaItem.createdAt, order: .reverse)
     private var mediaItems: [MediaItem]
 
-    @State private var pasteUrlText = ""
     @State private var selectedMediaItem: MediaItem?
     @State private var autoTranscribeImportedIdentifier: String?
 
@@ -33,32 +33,14 @@ struct ContentView: View {
         NavigationStack {
             List {
                 Section("Video a ser trabalhado") {
-                    TextField("Cole link do YouTube ou Instagram", text: $pasteUrlText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .submitLabel(.go)
-                        .onSubmit {
-                            addPastedUrlItem(shouldNavigateAndAutoTranscribe: true)
-                        }
-                        .onChange(of: pasteUrlText) { oldValue, newValue in
-                            let trimmedOldValue = oldValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                            let trimmedNewValue = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                            if trimmedOldValue.isEmpty == false {
-                                return
-                            }
-
-                            if trimmedNewValue.isEmpty {
-                                return
-                            }
-
-                            if looksLikeUrl(text: trimmedNewValue) == false {
-                                return
-                            }
-
-                            addPastedUrlItem(shouldNavigateAndAutoTranscribe: true)
-                        }
+                    Button {
+                        addClipboardUrlItem(shouldNavigateAndAutoTranscribe: true)
+                    } label: {
+                        Text("Usar link do clipboard")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
 
                 if isImportInProgress {
@@ -285,9 +267,15 @@ struct ContentView: View {
         }
     }
 
-    private func addPastedUrlItem(shouldNavigateAndAutoTranscribe: Bool) {
-        let trimmedUrlText = pasteUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func addClipboardUrlItem(shouldNavigateAndAutoTranscribe: Bool) {
+        let trimmedUrlText = (UIPasteboard.general.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedUrlText.isEmpty {
+            importErrorMessage = "Seu clipboard está vazio."
+            return
+        }
+
+        if looksLikeUrl(text: trimmedUrlText) == false {
+            importErrorMessage = "Não parece um link válido:\n\n\(trimmedUrlText)"
             return
         }
 
@@ -305,7 +293,6 @@ struct ContentView: View {
 
         do {
             try modelContext.save()
-            pasteUrlText = ""
 
             if shouldNavigateAndAutoTranscribe {
                 autoTranscribeImportedIdentifier = importedItemIdentifier

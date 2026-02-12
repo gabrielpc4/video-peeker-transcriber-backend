@@ -275,7 +275,9 @@ Dica de idioma detectado (pode estar errado): {detected_language_hint}
             "additionalProperties": False,
         }
 
-        max_tokens_value = 32768 if extended_output else 1800
+        # NOTE: enhanced transcripts can be close to the original transcript length.
+        # A low max_tokens risks truncating mid-JSON and failing parsing.
+        max_tokens_value = 32768 if extended_output else 6000
         combined_text = _call_anthropic_structured_json(
             api_key=self._api_key,
             url=url,
