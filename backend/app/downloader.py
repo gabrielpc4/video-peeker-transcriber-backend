@@ -71,10 +71,11 @@ def download_with_ytdlp(
         output_template,
     ]
 
-    # YouTube now often requires a JS runtime to solve "n" challenges / signature logic.
-    # If node is available, allow yt-dlp to use it.
-    if is_youtube and shutil.which("node") is not None:
-        command_args.extend(["--js-runtimes", "node"])
+    # YouTube now requires an external JS runtime + EJS solver scripts for many cases.
+    # Deno is enabled by default, but we still explicitly allow pulling the solver scripts
+    # from GitHub when needed.
+    if is_youtube:
+        command_args.extend(["--remote-components", "ejs:github"])
 
     # Only use Instagram cookies for Instagram URLs.
     # Also, yt-dlp may try to save cookies back to the provided jar path. To avoid
