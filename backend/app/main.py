@@ -62,7 +62,11 @@ def create_app() -> FastAPI:
         return CreateItemResponse(item_id=item_id)
 
     @app.post("/items/{item_id}/transcribe", response_model=ItemResponse)
-    def transcribe_item(item_id: str, background_tasks: BackgroundTasks) -> ItemResponse:
+    def transcribe_item(
+        item_id: str,
+        background_tasks: BackgroundTasks,
+        extended_output: bool = False,
+    ) -> ItemResponse:
         record = item_repository.get_item(item_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Item not found.")
@@ -75,6 +79,7 @@ def create_app() -> FastAPI:
             instagram_cookies_path=config.instagram_cookies_path,
             assemblyai_api_key=config.assemblyai_api_key,
             anthropic_api_key=config.anthropic_api_key,
+            extended_output=extended_output,
         )
 
         latest_record = item_repository.get_item(item_id)
@@ -84,12 +89,17 @@ def create_app() -> FastAPI:
         return item_repository.to_response(latest_record)
 
     @app.post("/items/{item_id}/breakdown", response_model=ItemResponse)
-    def breakdown_item(item_id: str, background_tasks: BackgroundTasks) -> ItemResponse:
+    def breakdown_item(
+        item_id: str,
+        background_tasks: BackgroundTasks,
+        extended_output: bool = False,
+    ) -> ItemResponse:
         record = item_repository.get_item(item_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Item not found.")
 
-        if (record.transcript_text or "").strip() == "":
+        transcript_for_breakdown = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
+        if transcript_for_breakdown == "":
             raise HTTPException(status_code=400, detail="Missing transcript_text. Run transcription first.")
 
         background_tasks.add_task(
@@ -97,6 +107,7 @@ def create_app() -> FastAPI:
             item_id=item_id,
             item_repository=item_repository,
             anthropic_api_key=config.anthropic_api_key,
+            extended_output=extended_output,
         )
 
         latest_record = item_repository.get_item(item_id)
@@ -106,7 +117,11 @@ def create_app() -> FastAPI:
         return item_repository.to_response(latest_record)
 
     @app.post("/items/{item_id}/summary", response_model=ItemResponse)
-    def summary_item(item_id: str, background_tasks: BackgroundTasks) -> ItemResponse:
+    def summary_item(
+        item_id: str,
+        background_tasks: BackgroundTasks,
+        extended_output: bool = False,
+    ) -> ItemResponse:
         record = item_repository.get_item(item_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Item not found.")
@@ -114,7 +129,8 @@ def create_app() -> FastAPI:
         if record.source_type != "url":
             raise HTTPException(status_code=400, detail="Summary is only supported for URL items.")
 
-        if (record.transcript_text or "").strip() == "":
+        transcript_for_summary = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
+        if transcript_for_summary == "":
             raise HTTPException(status_code=400, detail="Missing transcript_text. Run transcription first.")
 
         background_tasks.add_task(
@@ -122,6 +138,7 @@ def create_app() -> FastAPI:
             item_id=item_id,
             item_repository=item_repository,
             anthropic_api_key=config.anthropic_api_key,
+            extended_output=extended_output,
         )
 
         latest_record = item_repository.get_item(item_id)

@@ -35,7 +35,7 @@ class AnthropicClient:
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
 
-    def generate_audio_recap(self, *, transcript_text: str, detected_language: str | None) -> AudioRecapOutput:
+    def generate_audio_recap(self, *, transcript_text: str, detected_language: str | None, extended_output: bool = False) -> AudioRecapOutput:
         url = "https://api.anthropic.com/v1/messages"
 
         system_prompt = """
@@ -71,13 +71,14 @@ Transcrição:
             "additionalProperties": False,
         }
 
+        max_tokens_value = 2048 if extended_output else 900
         combined_text = _call_anthropic_structured_json(
             api_key=self._api_key,
             url=url,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=schema,
-            max_tokens=900,
+            max_tokens=max_tokens_value,
             temperature=0.3,
         )
 
@@ -95,7 +96,7 @@ Transcrição:
             recapBullets=recap_items,
         )
 
-    def generate_breakdown(self, *, transcript_text: str, detected_language: str | None) -> BreakdownOutput:
+    def generate_breakdown(self, *, transcript_text: str, detected_language: str | None, extended_output: bool = False) -> BreakdownOutput:
         url = "https://api.anthropic.com/v1/messages"
 
         system_prompt = """
@@ -144,13 +145,14 @@ Dica de idioma detectado (pode estar errado): {detected_language_hint}
             "additionalProperties": False,
         }
 
+        max_tokens_value = 8192 if extended_output else 1200
         combined_text = _call_anthropic_structured_json(
             api_key=self._api_key,
             url=url,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=schema,
-            max_tokens=1200,
+            max_tokens=max_tokens_value,
             temperature=0.4,
         )
 
@@ -165,7 +167,7 @@ Dica de idioma detectado (pode estar errado): {detected_language_hint}
             skippedAsFluff=[str(item).strip() for item in (output_payload.get("skippedAsFluff") or []) if str(item).strip() != ""],
         )
 
-    def generate_video_summary(self, *, transcript_text: str, detected_language: str | None) -> VideoSummaryOutput:
+    def generate_video_summary(self, *, transcript_text: str, detected_language: str | None, extended_output: bool = False) -> VideoSummaryOutput:
         url = "https://api.anthropic.com/v1/messages"
 
         system_prompt = """
@@ -204,13 +206,14 @@ Transcrição:
             "additionalProperties": False,
         }
 
+        max_tokens_value = 4096 if extended_output else 900
         combined_text = _call_anthropic_structured_json(
             api_key=self._api_key,
             url=url,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=schema,
-            max_tokens=900,
+            max_tokens=max_tokens_value,
             temperature=0.3,
         )
 
@@ -228,7 +231,7 @@ Transcrição:
             summaryBullets=summary_items,
         )
 
-    def enhance_transcript_speakers(self, *, transcript_text: str, detected_language: str | None) -> EnhancedTranscriptOutput:
+    def enhance_transcript_speakers(self, *, transcript_text: str, detected_language: str | None, extended_output: bool = False) -> EnhancedTranscriptOutput:
         url = "https://api.anthropic.com/v1/messages"
 
         system_prompt = """
@@ -271,13 +274,14 @@ Dica de idioma detectado (pode estar errado): {detected_language_hint}
             "additionalProperties": False,
         }
 
+        max_tokens_value = 32768 if extended_output else 1800
         combined_text = _call_anthropic_structured_json(
             api_key=self._api_key,
             url=url,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             schema=schema,
-            max_tokens=1800,
+            max_tokens=max_tokens_value,
             temperature=0.2,
         )
 

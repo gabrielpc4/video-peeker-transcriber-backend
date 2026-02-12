@@ -20,6 +20,7 @@ def run_transcription_job(
     instagram_cookies_path: str,
     assemblyai_api_key: str,
     anthropic_api_key: str,
+    extended_output: bool = False,
 ) -> None:
     record = item_repository.get_item(item_id)
     if record is None:
@@ -90,6 +91,7 @@ def run_transcription_job(
                 enhanced = anthropic_client.enhance_transcript_speakers(
                     transcript_text=transcript_result.transcript_text,
                     detected_language=transcript_result.detected_language_code,
+                    extended_output=extended_output,
                 )
 
                 item_repository.set_enhanced_transcript_completed(
@@ -103,7 +105,7 @@ def run_transcription_job(
         raise
 
 
-def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropic_api_key: str) -> None:
+def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropic_api_key: str, extended_output: bool = False) -> None:
     record = item_repository.get_item(item_id)
     if record is None:
         raise RuntimeError("Item not found.")
@@ -111,7 +113,7 @@ def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropi
     if record.breakdown_status == "running":
         return
 
-    transcript_text = (record.transcript_text or "").strip()
+    transcript_text = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
     if transcript_text == "":
         raise RuntimeError("Missing transcript_text. Run transcription first.")
 
@@ -123,6 +125,7 @@ def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropi
             recap = anthropic_client.generate_audio_recap(
                 transcript_text=transcript_text,
                 detected_language=record.detected_language,
+                extended_output=extended_output,
             )
 
             breakdown_json = json.dumps(recap.__dict__, ensure_ascii=False, indent=2)
@@ -130,6 +133,7 @@ def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropi
             breakdown = anthropic_client.generate_breakdown(
                 transcript_text=transcript_text,
                 detected_language=record.detected_language,
+                extended_output=extended_output,
             )
 
             breakdown_json = json.dumps(breakdown.__dict__, ensure_ascii=False, indent=2)
@@ -140,7 +144,7 @@ def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropi
         raise
 
 
-def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_api_key: str) -> None:
+def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_api_key: str, extended_output: bool = False) -> None:
     record = item_repository.get_item(item_id)
     if record is None:
         raise RuntimeError("Item not found.")
@@ -151,7 +155,7 @@ def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_
     if record.summary_status == "running":
         return
 
-    transcript_text = (record.transcript_text or "").strip()
+    transcript_text = (record.enhanced_transcript_text or "").strip() or (record.transcript_text or "").strip()
     if transcript_text == "":
         raise RuntimeError("Missing transcript_text. Run transcription first.")
 
@@ -162,6 +166,7 @@ def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_
         summary = anthropic_client.generate_video_summary(
             transcript_text=transcript_text,
             detected_language=record.detected_language,
+            extended_output=extended_output,
         )
 
         summary_json = json.dumps(summary.__dict__, ensure_ascii=False, indent=2)
