@@ -12,6 +12,10 @@ struct BackendClient {
         let item_id: String
     }
 
+    struct HealthResponse: Decodable {
+        let status: String
+    }
+
     struct ItemResponse: Decodable {
         let item_id: String
         let created_at_iso: String
@@ -41,6 +45,13 @@ struct BackendClient {
     init(baseUrl: URL, urlSession: URLSession = .shared) {
         self.baseUrl = baseUrl
         self.urlSession = urlSession
+    }
+
+    func health() async throws -> HealthResponse {
+        let url = baseUrl.appendingPathComponent("health")
+        let (data, response) = try await urlSession.data(from: url)
+        try validateHttpResponse(response: response, data: data)
+        return try JSONDecoder().decode(HealthResponse.self, from: data)
     }
 
     func createUrlItem(sourceUrl: String) async throws -> String {

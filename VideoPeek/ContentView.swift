@@ -24,11 +24,17 @@ struct ContentView: View {
 
     @State private var isSettingsPresented = false
 
-    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "https://videopeek-backend.onrender.com:8000"
+
+    @State private var backendStatus: BackendStatusState = .unknown
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Backend") {
+                    backendStatusView
+                }
+
                 Section("Video a ser trabalhado") {
                     TextField("Cole link do YouTube ou Instagram", text: $pasteUrlText)
                         .textInputAutocapitalization(.never)
@@ -103,15 +109,20 @@ struct ContentView: View {
             .task {
                 await importPendingItems()
             }
+            .task(id: backendBaseUrlText) {
+                await refreshBackendStatus()
+            }
             .onChange(of: scenePhase) { newScenePhase in
                 if newScenePhase == .active {
                     Task {
                         await importPendingItems()
+                        await refreshBackendStatus()
                     }
                 }
             }
             .refreshable {
                 await importPendingItems()
+                await refreshBackendStatus()
             }
             .alert("Erro", isPresented: isImportErrorPresented) {
                 Button("OK") {
@@ -141,6 +152,55 @@ struct ContentView: View {
         )
     }
 
+    @ViewBuilder
+    private var backendStatusView: some View {
+        let baseUrlText = backendBaseUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        VStack(alignment: .leading, spacing: 8) {
+            Text(baseUrlText.isEmpty ? "Base URL não configurada." : baseUrlText)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            HStack(spacing: 10) {
+                Group {
+                    switch backendStatus {
+                    case .unknown:
+                        Text("Status: desconhecido")
+                            .foregroundStyle(.secondary)
+                    case .checking:
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Verificando…")
+                                .foregroundStyle(.secondary)
+                        }
+                    case let .reachable(latencyMs):
+                        Text("Status: ok (\(latencyMs) ms)")
+                            .foregroundStyle(.green)
+                    case let .unreachable(message):
+                        Text("Status: indisponível")
+                            .foregroundStyle(.red)
+                            .accessibilityLabel("Status: indisponível. \(message)")
+                    }
+                }
+
+                Spacer()
+
+                Button("Testar") {
+                    Task { await refreshBackendStatus() }
+                }
+                .buttonStyle(.bordered)
+            }
+
+            if case let .unreachable(message) = backendStatus {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+        }
+    }
+
     private func importPendingItems() async {
         if isImportInProgress {
             return
@@ -157,6 +217,27 @@ struct ContentView: View {
             _ = importedCount
         } catch {
             importErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func refreshBackendStatus() async {
+        let baseUrlText = backendBaseUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let baseUrl = URL(string: baseUrlText), baseUrlText.isEmpty == false else {
+            backendStatus = .unreachable("Base URL inválida.")
+            return
+        }
+
+        backendStatus = .checking
+
+        let startedAt = Date()
+        do {
+            let client = BackendClient(baseUrl: baseUrl)
+            _ = try await client.health()
+            let latencyMs = Int(Date().timeIntervalSince(startedAt) * 1000.0)
+            backendStatus = .reachable(latencyMs: max(0, latencyMs))
+        } catch {
+            backendStatus = .unreachable(error.localizedDescription)
         }
     }
 
@@ -245,6 +326,13 @@ struct ContentView: View {
             // Keep host fallback if title lookup fails.
         }
     }
+}
+
+private enum BackendStatusState: Equatable {
+    case unknown
+    case checking
+    case reachable(latencyMs: Int)
+    case unreachable(String)
 }
 
 #Preview {
