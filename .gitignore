@@ -17,7 +17,8 @@ DerivedData/
 
 # Backend secrets + runtime data
 backend/.env
-backend/secrets/
+backend/secrets/*
+!backend/secrets/README.md
 backend/storage/
 backend/*.sqlite
 backend/*.sqlite-wal

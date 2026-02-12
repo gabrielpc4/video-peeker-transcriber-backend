@@ -1,15 +1,15 @@
 //
-//  myprojectnameApp.swift
-//  myprojectname
+//  VideoPeekApp.swift
+//  VideoPeek
 //
-//  Created by Gabriel Carvalho on 12/02/26.
+//  Created by Gabriel Pinheiro de Carvalho on 12/02/26.
 //
 
 import SwiftUI
 import SwiftData
 
 @main
-struct VibeRecapApp: App {
+struct VideoPeekApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

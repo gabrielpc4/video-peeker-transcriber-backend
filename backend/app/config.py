@@ -26,7 +26,7 @@ def load_config() -> AppConfig:
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
     storage_dir = os.getenv("STORAGE_DIR", "backend/storage").strip()
-    sqlite_path = os.getenv("SQLITE_PATH", "backend/viberecap.sqlite").strip()
+    sqlite_path = os.getenv("SQLITE_PATH", "backend/videopeek.sqlite").strip()
 
     instagram_cookies_path = os.getenv("INSTAGRAM_COOKIES_PATH", "backend/secrets/instagram_cookies.txt").strip()
 

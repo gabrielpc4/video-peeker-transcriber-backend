@@ -54,11 +54,7 @@ def download_with_ytdlp(
 
     output_template = os.path.join(output_dir, f"{item_id}.%(ext)s")
 
-    if "instagram.com" in source_url and os.path.exists(instagram_cookies_path) is False:
-        raise RuntimeError(
-            "Instagram link requires cookies for reliable access. "
-            "Export cookies (Netscape format) to backend/secrets/instagram_cookies.txt."
-        )
+    is_instagram = "instagram.com" in source_url
 
     # Why: for social/video links, we optimize for speed and smaller downloads.
     # Prefer a lower-bitrate audio stream when available.
@@ -75,6 +71,11 @@ def download_with_ytdlp(
 
     if os.path.exists(instagram_cookies_path):
         command_args.extend(["--cookies", instagram_cookies_path])
+    elif is_instagram:
+        # Best-effort fallback for local development: use current Chrome session cookies.
+        # This avoids requiring a separate cookies export step when the user is already
+        # logged in on Chrome.
+        command_args.extend(["--cookies-from-browser", "chrome"])
 
     command_args.append(source_url)
 

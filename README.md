@@ -1,4 +1,4 @@
-# VibeRecap
+# VideoPeek
 
 iOS app that lets you share:
 
@@ -50,5 +50,5 @@ uvicorn backend.app.main:app --reload --port 8000
 
 ## iOS
 
-Open `VibeRecap.xcodeproj` and run the app.
+Open `VideoPeek.xcodeproj` and run the app.
 

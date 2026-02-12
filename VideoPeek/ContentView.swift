@@ -85,7 +85,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("VibeRecap")
+            .navigationTitle("VideoPeek")
             .navigationDestination(item: $selectedMediaItem) { item in
                 let shouldAutoTranscribe = autoTranscribeImportedIdentifier == item.importedItemIdentifier
                 MediaItemDetailView(

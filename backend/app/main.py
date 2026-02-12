@@ -13,7 +13,7 @@ from .tasks import run_breakdown_job, run_summary_job, run_transcription_job
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="VibeRecap Backend")
+    app = FastAPI(title="VideoPeek Backend")
 
     app.add_middleware(
         CORSMiddleware,

@@ -1,6 +1,6 @@
 //
 //  MediaItemDetailView.swift
-//  VibeRecap
+//  VideoPeek
 //
 //  Created by Gabriel Pinheiro de Carvalho on 12/02/26.
 //

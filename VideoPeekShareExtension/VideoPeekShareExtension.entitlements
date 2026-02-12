@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.gabrielpc4.VibeRecap</string>
+		<string>group.com.gabrielpc4.VideoPeek</string>
 	</array>
 </dict>
 </plist>
