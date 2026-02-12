@@ -1,0 +1,19 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Ensure paths inside the container match our layout
+      STORAGE_DIR: "/app/data/storage"
+      SQLITE_PATH: "/app/data/videopeek.sqlite"
+      INSTAGRAM_COOKIES_PATH: "/app/secrets/instagram_cookies.txt"
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/secrets:/app/secrets:ro
+    restart: unless-stopped
+
