@@ -1,5 +1,4 @@
 import json
-import re
 from dataclasses import dataclass
 
 import requests
@@ -249,6 +248,7 @@ Restrições (muito importante):
 - NÃO invente nomes. Só use nome/role real se estiver claramente sustentado pelo texto.
 - Preserve ao máximo o texto original, apenas ajustando segmentação e quem falou o quê.
 - Formato de saída: um transcript com uma fala por bloco, no formato "Nome: texto", e UMA linha em branco entre blocos.
+- Mesmo que só exista 1 speaker no resultado final, NÃO devolva um bloco gigante. Quebre em blocos menores em lugares naturais, mantendo o mesmo speaker label, para ficar mais legível.
 
 Saída:
 - Responda APENAS com JSON válido seguindo o schema (sem texto fora do JSON).
@@ -290,8 +290,6 @@ Dica de idioma detectado (pode estar errado): {detected_language_hint}
         enhanced_text = str(output_payload.get("enhancedTranscriptText") or "").strip()
         if enhanced_text == "":
             raise RuntimeError("Enhanced transcript is empty.")
-
-        enhanced_text = _make_single_speaker_transcript_more_breathable(enhanced_text)
 
         return EnhancedTranscriptOutput(
             enhancedTranscriptText=enhanced_text,
@@ -350,95 +348,4 @@ def _call_anthropic_structured_json(
         raise RuntimeError(f"Anthropic did not return valid JSON.\n\n{combined_text}") from error
 
     return combined_text
-
-
-_SPEAKER_LINE_RE = re.compile(r"^(?P<speaker>[^:\n]{1,60}):\s+(?P<text>\S.+)$")
-
-
-def _count_distinct_speakers(transcript_text: str) -> set[str]:
-    speakers: set[str] = set()
-    for raw_line in transcript_text.splitlines():
-        line = raw_line.strip()
-        if line == "":
-            continue
-        match = _SPEAKER_LINE_RE.match(line)
-        if match is None:
-            continue
-        speaker = (match.group("speaker") or "").strip()
-        if speaker != "":
-            speakers.add(speaker)
-    return speakers
-
-
-def _paragraphize_text(text: str, *, target_chars: int = 200, min_sentences: int = 2) -> str:
-    """
-    Insert blank lines to make long single-speaker transcript blocks easier to read.
-    We keep the original wording; only add paragraph breaks.
-    """
-    cleaned = " ".join(text.strip().split())
-    if cleaned == "":
-        return ""
-
-    # Rough sentence splitter. Good enough for readability without LLM cost.
-    sentences = re.split(r"(?<=[\.\!\?\…])\s+", cleaned)
-    sentences = [s.strip() for s in sentences if s.strip() != ""]
-    if len(sentences) <= 3:
-        return cleaned
-
-    paragraphs: list[str] = []
-    current: list[str] = []
-    current_len = 0
-
-    for sentence in sentences:
-        current.append(sentence)
-        current_len += len(sentence) + 1
-
-        if len(current) >= min_sentences and current_len >= target_chars:
-            paragraphs.append(" ".join(current).strip())
-            current = []
-            current_len = 0
-
-    if len(current) > 0:
-        paragraphs.append(" ".join(current).strip())
-
-    # If we failed to create multiple paragraphs, keep as-is.
-    if len(paragraphs) <= 1:
-        return cleaned
-
-    return "\n\n".join(paragraphs)
-
-
-def _make_single_speaker_transcript_more_breathable(enhanced_transcript_text: str) -> str:
-    """
-    If an enhanced transcript ends up with only one (or zero) distinct speaker labels,
-    make it more readable by adding paragraph breaks inside each block.
-    """
-    text = enhanced_transcript_text.strip()
-    if text == "":
-        return text
-
-    speakers = _count_distinct_speakers(text)
-    if len(speakers) > 1:
-        return enhanced_transcript_text
-
-    # Split into blocks separated by blank lines (Claude already uses this for multi-speaker).
-    blocks = [b.strip() for b in re.split(r"\n\s*\n", text) if b.strip() != ""]
-    if len(blocks) == 0:
-        return enhanced_transcript_text
-
-    processed_blocks: list[str] = []
-    for block in blocks:
-        # If this is a speaker-labeled line, keep the prefix and paragraphize the content.
-        match = _SPEAKER_LINE_RE.match(block)
-        if match is not None:
-            speaker = (match.group("speaker") or "").strip()
-            content = (match.group("text") or "").strip()
-            content = _paragraphize_text(content)
-            processed_blocks.append(f"{speaker}: {content}".strip())
-            continue
-
-        # Otherwise, paragraphize the whole block.
-        processed_blocks.append(_paragraphize_text(block))
-
-    return "\n\n".join([b for b in processed_blocks if b.strip() != ""]).strip()
 
