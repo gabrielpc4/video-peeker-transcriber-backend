@@ -23,6 +23,7 @@ struct MediaItemDetailView: View {
     @State private var selectedTranscriptVersion = TranscriptVersion.enhanced
 
     @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+    @AppStorage("useExtendedOutput") private var useExtendedOutput = false
 
     init(mediaItem: MediaItem, shouldStartTranscriptionOnAppear: Bool = false) {
         self.mediaItem = mediaItem
@@ -75,6 +76,9 @@ struct MediaItemDetailView: View {
                     }
                 }
                 .disabled(isActionInProgress)
+
+                 Toggle("Vídeos longos (mais tokens)", isOn: $useExtendedOutput)
+                    .help("Ativa limites maiores de saída para transcrição aprimorada, resumo e breakdown. Use para vídeos de ~1h.")
             }
 
             if mediaItem.sourceType == .audioFile {
@@ -525,7 +529,7 @@ struct MediaItemDetailView: View {
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
-        _ = try await client.startSummary(itemId: itemId)
+        _ = try await client.startSummary(itemId: itemId, extendedOutput: useExtendedOutput)
         let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "summary")
 
         mediaItem.summaryStatusRaw = finalResponse.summary_status
@@ -564,7 +568,7 @@ struct MediaItemDetailView: View {
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
-        _ = try await client.startTranscription(itemId: itemId)
+        _ = try await client.startTranscription(itemId: itemId, extendedOutput: useExtendedOutput)
         let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "transcription")
         let enhancedResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "enhanced_transcript")
 
@@ -592,7 +596,7 @@ struct MediaItemDetailView: View {
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
-        _ = try await client.startBreakdown(itemId: itemId)
+        _ = try await client.startBreakdown(itemId: itemId, extendedOutput: useExtendedOutput)
         let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "breakdown")
 
         mediaItem.breakdownStatusRaw = finalResponse.breakdown_status

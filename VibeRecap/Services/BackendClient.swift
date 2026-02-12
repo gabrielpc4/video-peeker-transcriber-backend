@@ -88,8 +88,8 @@ struct BackendClient {
         return decoded.item_id
     }
 
-    func startTranscription(itemId: String) async throws -> ItemResponse {
-        let url = baseUrl.appendingPathComponent("items/\(itemId)/transcribe")
+    func startTranscription(itemId: String, extendedOutput: Bool = false) async throws -> ItemResponse {
+        let url = urlForItemAction(itemId: itemId, path: "transcribe", extendedOutput: extendedOutput)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -99,8 +99,8 @@ struct BackendClient {
         return try JSONDecoder().decode(ItemResponse.self, from: data)
     }
 
-    func startBreakdown(itemId: String) async throws -> ItemResponse {
-        let url = baseUrl.appendingPathComponent("items/\(itemId)/breakdown")
+    func startBreakdown(itemId: String, extendedOutput: Bool = false) async throws -> ItemResponse {
+        let url = urlForItemAction(itemId: itemId, path: "breakdown", extendedOutput: extendedOutput)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -110,8 +110,8 @@ struct BackendClient {
         return try JSONDecoder().decode(ItemResponse.self, from: data)
     }
 
-    func startSummary(itemId: String) async throws -> ItemResponse {
-        let url = baseUrl.appendingPathComponent("items/\(itemId)/summary")
+    func startSummary(itemId: String, extendedOutput: Bool = false) async throws -> ItemResponse {
+        let url = urlForItemAction(itemId: itemId, path: "summary", extendedOutput: extendedOutput)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -119,6 +119,14 @@ struct BackendClient {
         try validateHttpResponse(response: response, data: data)
 
         return try JSONDecoder().decode(ItemResponse.self, from: data)
+    }
+
+    private func urlForItemAction(itemId: String, path: String, extendedOutput: Bool) -> URL {
+        var components = URLComponents(url: baseUrl.appendingPathComponent("items/\(itemId)/\(path)"), resolvingAgainstBaseURL: false)!
+        if extendedOutput {
+            components.queryItems = [URLQueryItem(name: "extended_output", value: "true")]
+        }
+        return components.url!
     }
 
     func getItem(itemId: String) async throws -> ItemResponse {
