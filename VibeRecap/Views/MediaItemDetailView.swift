@@ -76,9 +76,6 @@ struct MediaItemDetailView: View {
                     }
                 }
                 .disabled(isActionInProgress)
-
-                 Toggle("Vídeos longos (mais tokens)", isOn: $useExtendedOutput)
-                    .help("Ativa limites maiores de saída para transcrição aprimorada, resumo e breakdown. Use para vídeos de ~1h.")
             }
 
             if mediaItem.sourceType == .audioFile {
@@ -182,6 +179,9 @@ struct MediaItemDetailView: View {
                     }
                 }
             }
+
+              Toggle("Vídeos longos (mais tokens)", isOn: $useExtendedOutput)
+                    .help("Ativa limites maiores de saída para transcrição aprimorada, resumo e breakdown. Use para vídeos de ~1h.")
         }
         .navigationTitle(navigationTitleText)
         .navigationBarTitleDisplayMode(.inline)
@@ -203,6 +203,11 @@ struct MediaItemDetailView: View {
         }
 
         if mediaItem.sourceType == .url {
+            let titleText = (mediaItem.titleText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if titleText.isEmpty == false {
+                return titleText
+            }
+
             return "Link"
         }
 
@@ -516,6 +521,31 @@ struct MediaItemDetailView: View {
         return remoteItemIdentifier
     }
 
+    @MainActor
+    private func syncTitleFromBackendIfNeeded(client: BackendClient, itemId: String) async {
+        if mediaItem.sourceType != .url {
+            return
+        }
+
+        let existingTitleText = (mediaItem.titleText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if existingTitleText.isEmpty == false {
+            return
+        }
+
+        do {
+            let itemResponse = try await client.getItem(itemId: itemId)
+            let backendTitleText = (itemResponse.title_text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if backendTitleText.isEmpty {
+                return
+            }
+
+            mediaItem.titleText = backendTitleText
+            try modelContext.save()
+        } catch {
+            // We don't block transcription for a title-only fetch.
+        }
+    }
+
     private func summary() async throws {
         let transcriptText = (mediaItem.transcriptText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if transcriptText.isEmpty {
@@ -525,11 +555,12 @@ struct MediaItemDetailView: View {
         let client = BackendClient(baseUrl: try backendBaseUrl())
         let itemId = try await ensureRemoteItemExists(client: client)
 
+        let startResponse = try await client.startSummary(itemId: itemId, extendedOutput: useExtendedOutput)
+
         mediaItem.summaryStatus = .running
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
-        _ = try await client.startSummary(itemId: itemId, extendedOutput: useExtendedOutput)
         let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "summary")
 
         mediaItem.summaryStatusRaw = finalResponse.summary_status
@@ -560,6 +591,8 @@ struct MediaItemDetailView: View {
     private func transcribe() async throws {
         let client = BackendClient(baseUrl: try backendBaseUrl())
         let itemId = try await ensureRemoteItemExists(client: client)
+
+        await syncTitleFromBackendIfNeeded(client: client, itemId: itemId)
 
         mediaItem.transcriptionStatus = .running
         mediaItem.enhancedTranscriptStatus = .pending

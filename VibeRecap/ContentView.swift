@@ -29,7 +29,7 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Adicionar link") {
+                Section("Video a ser trabalhado") {
                     TextField("Cole link do YouTube ou Instagram", text: $pasteUrlText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -56,10 +56,6 @@ struct ContentView: View {
 
                             addPastedUrlItem(shouldNavigateAndAutoTranscribe: true)
                         }
-
-                    Text("Cole um link e pronto — o app já abre o item e começa a transcrever.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
                 if isImportInProgress {
@@ -227,6 +223,11 @@ struct ContentView: View {
             return
         }
 
+        guard let remoteItemIdentifier = mediaItem.remoteItemIdentifier, remoteItemIdentifier.isEmpty == false else {
+            // Do not create remote items just to resolve a title; creation happens on transcribe/summary.
+            return
+        }
+
         let baseUrlText = backendBaseUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let baseUrl = URL(string: baseUrlText) else {
             return
@@ -235,23 +236,13 @@ struct ContentView: View {
         do {
             let client = BackendClient(baseUrl: baseUrl)
 
-            if mediaItem.remoteItemIdentifier == nil {
-                let remoteItemIdentifier = try await client.createUrlItem(sourceUrl: sourceUrlText)
-                mediaItem.remoteItemIdentifier = remoteItemIdentifier
-                try modelContext.save()
-            }
-
-            guard let remoteItemIdentifier = mediaItem.remoteItemIdentifier else {
-                return
-            }
-
             let itemResponse = try await client.getItem(itemId: remoteItemIdentifier)
             if let titleText = itemResponse.title_text, titleText.isEmpty == false {
                 mediaItem.titleText = titleText
                 try modelContext.save()
             }
         } catch {
-            // If title lookup fails, we keep the item and show host fallback.
+            // Keep host fallback if title lookup fails.
         }
     }
 }
