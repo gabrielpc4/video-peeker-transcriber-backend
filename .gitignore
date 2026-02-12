@@ -1,0 +1,29 @@
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Fastlane / packaging
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Backend secrets + runtime data
+backend/.env
+backend/secrets/
+backend/storage/
+backend/*.sqlite
+backend/*.sqlite-wal
+backend/*.sqlite-shm
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+

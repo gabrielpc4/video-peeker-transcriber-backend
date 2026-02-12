@@ -1,0 +1,175 @@
+import json
+import uuid
+from dataclasses import dataclass
+from typing import Optional
+
+from .db import Database
+from .models import ItemResponse, now_iso
+
+
+@dataclass(frozen=True)
+class ItemRecord:
+    item_id: str
+    created_at_iso: str
+    source_type: str
+    source_url: Optional[str]
+    local_media_path: Optional[str]
+
+    transcription_status: str
+    breakdown_status: str
+
+    detected_language: Optional[str]
+    transcript_text: Optional[str]
+    breakdown_json: Optional[str]
+
+    last_error: Optional[str]
+
+
+class ItemRepository:
+    def __init__(self, database: Database) -> None:
+        self._database = database
+
+    def create_url_item(self, source_url: str) -> str:
+        item_id = str(uuid.uuid4())
+        created_at_iso = now_iso()
+
+        with self._database.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO items (
+                  item_id, created_at_iso, source_type, source_url, local_media_path,
+                  transcription_status, breakdown_status,
+                  detected_language, transcript_text, breakdown_json,
+                  last_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    created_at_iso,
+                    "url",
+                    source_url,
+                    None,
+                    "pending",
+                    "pending",
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
+            )
+            connection.commit()
+
+        return item_id
+
+    def create_upload_item(self, local_media_path: str) -> str:
+        item_id = str(uuid.uuid4())
+        created_at_iso = now_iso()
+
+        with self._database.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO items (
+                  item_id, created_at_iso, source_type, source_url, local_media_path,
+                  transcription_status, breakdown_status,
+                  detected_language, transcript_text, breakdown_json,
+                  last_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    created_at_iso,
+                    "upload",
+                    None,
+                    local_media_path,
+                    "pending",
+                    "pending",
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
+            )
+            connection.commit()
+
+        return item_id
+
+    def get_item(self, item_id: str) -> ItemRecord | None:
+        with self._database.connect() as connection:
+            row = connection.execute("SELECT * FROM items WHERE item_id = ?", (item_id,)).fetchone()
+
+        if row is None:
+            return None
+
+        return ItemRecord(
+            item_id=row["item_id"],
+            created_at_iso=row["created_at_iso"],
+            source_type=row["source_type"],
+            source_url=row["source_url"],
+            local_media_path=row["local_media_path"],
+            transcription_status=row["transcription_status"],
+            breakdown_status=row["breakdown_status"],
+            detected_language=row["detected_language"],
+            transcript_text=row["transcript_text"],
+            breakdown_json=row["breakdown_json"],
+            last_error=row["last_error"],
+        )
+
+    def set_transcription_running(self, item_id: str) -> None:
+        self._update(item_id=item_id, updates={"transcription_status": "running", "last_error": None})
+
+    def set_transcription_completed(self, *, item_id: str, transcript_text: str, detected_language: str | None) -> None:
+        self._update(
+            item_id=item_id,
+            updates={
+                "transcription_status": "completed",
+                "transcript_text": transcript_text,
+                "detected_language": detected_language,
+                "last_error": None,
+            },
+        )
+
+    def set_transcription_failed(self, *, item_id: str, error_message: str) -> None:
+        self._update(item_id=item_id, updates={"transcription_status": "failed", "last_error": error_message})
+
+    def set_breakdown_running(self, item_id: str) -> None:
+        self._update(item_id=item_id, updates={"breakdown_status": "running", "last_error": None})
+
+    def set_breakdown_completed(self, *, item_id: str, breakdown_json: str) -> None:
+        self._update(item_id=item_id, updates={"breakdown_status": "completed", "breakdown_json": breakdown_json, "last_error": None})
+
+    def set_breakdown_failed(self, *, item_id: str, error_message: str) -> None:
+        self._update(item_id=item_id, updates={"breakdown_status": "failed", "last_error": error_message})
+
+    def to_response(self, record: ItemRecord) -> ItemResponse:
+        return ItemResponse(
+            item_id=record.item_id,
+            created_at_iso=record.created_at_iso,
+            source_type=record.source_type,
+            source_url=record.source_url,
+            transcription_status=record.transcription_status,
+            breakdown_status=record.breakdown_status,
+            detected_language=record.detected_language,
+            transcript_text=record.transcript_text,
+            breakdown_json=record.breakdown_json,
+            last_error=record.last_error,
+        )
+
+    def _update(self, *, item_id: str, updates: dict) -> None:
+        if len(updates) == 0:
+            return
+
+        columns = []
+        values = []
+
+        for key, value in updates.items():
+            columns.append(f"{key} = ?")
+            values.append(value)
+
+        values.append(item_id)
+
+        query_text = f"UPDATE items SET {', '.join(columns)} WHERE item_id = ?"
+
+        with self._database.connect() as connection:
+            connection.execute(query_text, values)
+            connection.commit()
+
