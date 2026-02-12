@@ -10,9 +10,16 @@ import SwiftData
 
 @main
 struct VideoPeekApp: App {
+    init() {
+        Task { @MainActor in
+            ConsoleLogStore.shared.startCaptureIfNeeded()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(ConsoleLogStore.shared)
         }
         .modelContainer(for: [
             MediaItem.self,

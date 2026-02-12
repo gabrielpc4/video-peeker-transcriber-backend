@@ -11,6 +11,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var consoleLogStore: ConsoleLogStore
 
     @Query(sort: \MediaItem.createdAt, order: .reverse)
     private var mediaItems: [MediaItem]
@@ -24,17 +25,13 @@ struct ContentView: View {
 
     @State private var isSettingsPresented = false
 
-    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "https://videopeek-backend.onrender.com:8000"
+    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "https://videopeek-backend.onrender.com"
 
     @State private var backendStatus: BackendStatusState = .unknown
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Backend") {
-                    backendStatusView
-                }
-
                 Section("Video a ser trabalhado") {
                     TextField("Cole link do YouTube ou Instagram", text: $pasteUrlText)
                         .textInputAutocapitalization(.never)
@@ -89,6 +86,14 @@ struct ContentView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                }
+
+                Section("Backend") {
+                    backendStatusView
+                }
+
+                Section("Logs") {
+                    consoleLogsView
                 }
             }
             .navigationTitle("VideoPeek")
@@ -197,6 +202,45 @@ struct ContentView: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
+            }
+        }
+    }
+
+    private var consoleLogsView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("\(consoleLogStore.lines.count) linhas")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button("Limpar") {
+                    consoleLogStore.clear()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(consoleLogStore.lines.enumerated()), id: \.offset) { index, line in
+                            Text(line)
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .id(index)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 220, maxHeight: 420)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .onChange(of: consoleLogStore.lines.count) { _, newValue in
+                    guard newValue > 0 else { return }
+                    proxy.scrollTo(newValue - 1, anchor: .bottom)
+                }
             }
         }
     }
