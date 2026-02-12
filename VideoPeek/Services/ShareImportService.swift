@@ -39,6 +39,12 @@ struct ShareImportService {
 
         let jsonDecoder = JSONDecoder()
         let iso8601Formatter = ISO8601DateFormatter()
+        let audioTitleFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "dd MMM HH:mm"
+            return f
+        }()
 
         var importedCount = 0
 
@@ -81,7 +87,10 @@ struct ShareImportService {
                     storedFilename: metadata.storedFilename
                 )
 
-                if let titleText, titleText.isEmpty == false {
+                if sourceType == .audioFile {
+                    // Friendly default title for WhatsApp voice notes.
+                    mediaItem.titleText = "Audio \(audioTitleFormatter.string(from: createdAtDate))"
+                } else if let titleText, titleText.isEmpty == false {
                     mediaItem.titleText = titleText
                 }
 

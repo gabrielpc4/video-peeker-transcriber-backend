@@ -95,10 +95,19 @@ final class ShareViewController: UIViewController {
 
             if itemProvider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 let sharedUrl = try await loadSharedUrl(itemProvider: itemProvider)
-                try await storeUrlMetadata(importedItemIdentifier: importedItemIdentifier, sharedUrl: sharedUrl)
+                if sharedUrl.isFileURL {
+                    try await storeAudioMetadata(importedItemIdentifier: importedItemIdentifier, importedFileUrl: sharedUrl)
+                } else {
+                    try await storeUrlMetadata(importedItemIdentifier: importedItemIdentifier, sharedUrl: sharedUrl.absoluteString)
+                }
             } else if itemProvider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 let sharedText = try await loadSharedText(itemProvider: itemProvider)
-                try await storeUrlMetadata(importedItemIdentifier: importedItemIdentifier, sharedUrl: sharedText)
+                let trimmed = sharedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let urlValue = URL(string: trimmed), urlValue.isFileURL {
+                    try await storeAudioMetadata(importedItemIdentifier: importedItemIdentifier, importedFileUrl: urlValue)
+                } else {
+                    try await storeUrlMetadata(importedItemIdentifier: importedItemIdentifier, sharedUrl: sharedText)
+                }
             } else {
                 let importedFileUrl = try await loadIncomingFileUrl(itemProvider: itemProvider)
                 try await storeAudioMetadata(importedItemIdentifier: importedItemIdentifier, importedFileUrl: importedFileUrl)
@@ -119,7 +128,7 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    private func loadSharedUrl(itemProvider: NSItemProvider) async throws -> String {
+    private func loadSharedUrl(itemProvider: NSItemProvider) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             itemProvider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, error in
                 if let error {
@@ -128,7 +137,7 @@ final class ShareViewController: UIViewController {
                 }
 
                 if let urlItem = item as? URL {
-                    continuation.resume(returning: urlItem.absoluteString)
+                    continuation.resume(returning: urlItem)
                     return
                 }
 
@@ -234,29 +243,22 @@ final class ShareViewController: UIViewController {
             sharedUrl: trimmedUrlText
         )
 
-        try await Task.detached(priority: .userInitiated) {
-            try ShareViewController.writeMetadata(metadata: metadata, importedItemIdentifier: importedItemIdentifier)
-        }
-        .value
+        try ShareViewController.writeMetadata(metadata: metadata, importedItemIdentifier: importedItemIdentifier)
     }
 
     private func storeAudioMetadata(importedItemIdentifier: String, importedFileUrl: URL) async throws {
-        let storedFilename = try await Task.detached(priority: .userInitiated) {
-            let storedFilename = try ShareViewController.copyImportedFile(importedFileUrl: importedFileUrl, importedItemIdentifier: importedItemIdentifier)
+        let storedFilename = try ShareViewController.copyImportedFile(importedFileUrl: importedFileUrl, importedItemIdentifier: importedItemIdentifier)
 
-            let metadata = ImportedItemMetadata(
-                importedItemIdentifier: importedItemIdentifier,
-                createdAtIso8601: ISO8601DateFormatter().string(from: Date()),
-                kind: "audio",
-                originalFilename: importedFileUrl.lastPathComponent,
-                storedFilename: storedFilename,
-                sharedUrl: nil
-            )
+        let metadata = ImportedItemMetadata(
+            importedItemIdentifier: importedItemIdentifier,
+            createdAtIso8601: ISO8601DateFormatter().string(from: Date()),
+            kind: "audio",
+            originalFilename: importedFileUrl.lastPathComponent,
+            storedFilename: storedFilename,
+            sharedUrl: nil
+        )
 
-            try ShareViewController.writeMetadata(metadata: metadata, importedItemIdentifier: importedItemIdentifier)
-            return storedFilename
-        }
-        .value
+        try ShareViewController.writeMetadata(metadata: metadata, importedItemIdentifier: importedItemIdentifier)
 
         _ = storedFilename
     }

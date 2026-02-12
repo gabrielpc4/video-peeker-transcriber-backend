@@ -110,6 +110,9 @@ def create_app() -> FastAPI:
         if source_url == "":
             raise HTTPException(status_code=400, detail="source_url is empty.")
 
+        if source_url.startswith("file://"):
+            raise HTTPException(status_code=400, detail="file:// URLs are not supported. Upload the audio instead.")
+
         title_text = try_resolve_title(source_url)
         item_id = item_repository.create_url_item(source_url=source_url, title_text=title_text)
         return CreateItemResponse(item_id=item_id)
