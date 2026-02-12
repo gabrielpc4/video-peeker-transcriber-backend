@@ -13,11 +13,21 @@ struct MediaItemDetailView: View {
 
     @Bindable var mediaItem: MediaItem
 
+    let shouldStartTranscriptionOnAppear: Bool
+
     @State private var isActionInProgress = false
     @State private var currentActionTitle: String?
     @State private var actionErrorMessage: String?
 
+    @State private var hasTriggeredAutoTranscription = false
+    @State private var selectedTranscriptVersion = TranscriptVersion.enhanced
+
     @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+
+    init(mediaItem: MediaItem, shouldStartTranscriptionOnAppear: Bool = false) {
+        self.mediaItem = mediaItem
+        self.shouldStartTranscriptionOnAppear = shouldStartTranscriptionOnAppear
+    }
 
     var body: some View {
         List {
@@ -35,6 +45,22 @@ struct MediaItemDetailView: View {
                     }
                 }
                 .disabled(isActionInProgress)
+
+                if mediaItem.sourceType == .url {
+                    Button {
+                        startSummary()
+                    } label: {
+                        if isActionInProgress, currentActionTitle == "Resumo" {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Gerando resumo…")
+                            }
+                        } else {
+                            Text("Gerar resumo")
+                        }
+                    }
+                    .disabled(isActionInProgress)
+                }
 
                 Button {
                     startBreakdown()
@@ -63,6 +89,17 @@ struct MediaItemDetailView: View {
                     }
                 }
             } else {
+                Section("Resumo") {
+                    if summaryBullets.isEmpty == false {
+                        ForEach(summaryBullets, id: \.self) { bulletText in
+                            Text("• \(bulletText)")
+                        }
+                    } else {
+                        Text("Ainda não gerado.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Breakdown") {
                     if let breakdownViewModel = breakdownViewModel {
                         if breakdownViewModel.vibe.isEmpty == false {
@@ -113,12 +150,32 @@ struct MediaItemDetailView: View {
             }
 
             Section("Transcript") {
-                if let transcriptText = mediaItem.transcriptText, transcriptText.isEmpty == false {
-                    Text(transcriptText)
+                if mediaItem.sourceType == .url {
+                    Picker("Versão", selection: $selectedTranscriptVersion) {
+                        Text("Aprimorado").tag(TranscriptVersion.enhanced)
+                        Text("Original").tag(TranscriptVersion.original)
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                if transcriptDisplayText.isEmpty == false {
+                    Text(transcriptDisplayText)
                         .textSelection(.enabled)
                 } else {
-                    Text("Ainda não transcrito.")
+                    Text(transcriptPlaceholderText)
                         .foregroundStyle(.secondary)
+                }
+
+                if mediaItem.sourceType == .url, selectedTranscriptVersion == .enhanced {
+                    if mediaItem.enhancedTranscriptStatus == .running {
+                        Text("Aprimorando speakers…")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else if let errorText = mediaItem.enhancedTranscriptErrorMessage, errorText.isEmpty == false {
+                        Text(errorText)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
         }
@@ -130,6 +187,9 @@ struct MediaItemDetailView: View {
             }
         } message: {
             Text(actionErrorMessage ?? "")
+        }
+        .task(id: shouldStartTranscriptionOnAppear) {
+            await autoStartTranscriptionIfNeeded()
         }
     }
 
@@ -179,6 +239,43 @@ struct MediaItemDetailView: View {
         }
 
         guard let rawBullets = rawDictionary["recapBullets"] as? [Any] else {
+            return []
+        }
+
+        let bulletTexts = rawBullets.compactMap { item -> String? in
+            guard let textItem = item as? String else {
+                return nil
+            }
+
+            let trimmedText = textItem.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedText.isEmpty {
+                return nil
+            }
+
+            return trimmedText
+        }
+
+        return bulletTexts
+    }
+
+    private var summaryBullets: [String] {
+        let rawJsonText = (mediaItem.summaryJson ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if rawJsonText.isEmpty {
+            return []
+        }
+
+        guard let rawJsonData = rawJsonText.data(using: .utf8) else {
+            return []
+        }
+
+        guard
+            let rawObject = try? JSONSerialization.jsonObject(with: rawJsonData, options: []),
+            let rawDictionary = rawObject as? [String: Any]
+        else {
+            return []
+        }
+
+        guard let rawBullets = rawDictionary["summaryBullets"] as? [Any] else {
             return []
         }
 
@@ -271,6 +368,26 @@ struct MediaItemDetailView: View {
         )
     }
 
+    private var transcriptDisplayText: String {
+        if mediaItem.sourceType == .url, selectedTranscriptVersion == .enhanced {
+            return (mediaItem.enhancedTranscriptText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        return (mediaItem.transcriptText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var transcriptPlaceholderText: String {
+        if mediaItem.sourceType == .url, selectedTranscriptVersion == .enhanced {
+            if mediaItem.transcriptionStatus != .completed {
+                return "Ainda não transcrito."
+            }
+
+            return "Ainda não aprimorado."
+        }
+
+        return "Ainda não transcrito."
+    }
+
     private func startTranscription() {
         if isActionInProgress {
             return
@@ -294,6 +411,24 @@ struct MediaItemDetailView: View {
         }
     }
 
+    @MainActor
+    private func autoStartTranscriptionIfNeeded() async {
+        if shouldStartTranscriptionOnAppear == false {
+            return
+        }
+
+        if hasTriggeredAutoTranscription {
+            return
+        }
+
+        if mediaItem.transcriptionStatus == .running || mediaItem.transcriptionStatus == .completed {
+            return
+        }
+
+        hasTriggeredAutoTranscription = true
+        startTranscription()
+    }
+
     private func startBreakdown() {
         if isActionInProgress {
             return
@@ -311,6 +446,29 @@ struct MediaItemDetailView: View {
 
             do {
                 try await breakdown()
+            } catch {
+                actionErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func startSummary() {
+        if isActionInProgress {
+            return
+        }
+
+        isActionInProgress = true
+        currentActionTitle = "Resumo"
+        actionErrorMessage = nil
+
+        Task { @MainActor in
+            defer {
+                isActionInProgress = false
+                currentActionTitle = nil
+            }
+
+            do {
+                try await summary()
             } catch {
                 actionErrorMessage = error.localizedDescription
             }
@@ -354,6 +512,28 @@ struct MediaItemDetailView: View {
         return remoteItemIdentifier
     }
 
+    private func summary() async throws {
+        let transcriptText = (mediaItem.transcriptText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if transcriptText.isEmpty {
+            throw MediaItemActionError.missingTranscriptForSummary
+        }
+
+        let client = BackendClient(baseUrl: try backendBaseUrl())
+        let itemId = try await ensureRemoteItemExists(client: client)
+
+        mediaItem.summaryStatus = .running
+        mediaItem.lastErrorMessage = nil
+        try modelContext.save()
+
+        _ = try await client.startSummary(itemId: itemId)
+        let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "summary")
+
+        mediaItem.summaryStatusRaw = finalResponse.summary_status
+        mediaItem.summaryJson = finalResponse.summary_json
+        mediaItem.lastErrorMessage = finalResponse.last_error
+        try modelContext.save()
+    }
+
     private func resolveLocalAudioFileUrl() throws -> URL {
         guard let storedFilename = mediaItem.storedFilename, storedFilename.isEmpty == false else {
             throw MediaItemActionError.missingStoredFilename
@@ -378,16 +558,24 @@ struct MediaItemDetailView: View {
         let itemId = try await ensureRemoteItemExists(client: client)
 
         mediaItem.transcriptionStatus = .running
+        mediaItem.enhancedTranscriptStatus = .pending
+        mediaItem.enhancedTranscriptText = nil
+        mediaItem.enhancedTranscriptErrorMessage = nil
         mediaItem.lastErrorMessage = nil
         try modelContext.save()
 
         _ = try await client.startTranscription(itemId: itemId)
         let finalResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "transcription")
+        let enhancedResponse = try await pollUntilFinished(itemId: itemId, client: client, kind: "enhanced_transcript")
 
         mediaItem.transcriptionStatusRaw = finalResponse.transcription_status
         mediaItem.detectedLanguage = finalResponse.detected_language
         mediaItem.transcriptText = finalResponse.transcript_text
         mediaItem.lastErrorMessage = finalResponse.last_error
+
+        mediaItem.enhancedTranscriptStatusRaw = enhancedResponse.enhanced_transcript_status
+        mediaItem.enhancedTranscriptText = enhancedResponse.enhanced_transcript_text
+        mediaItem.enhancedTranscriptErrorMessage = enhancedResponse.enhanced_transcript_error
         try modelContext.save()
     }
 
@@ -427,6 +615,30 @@ struct MediaItemDetailView: View {
                 if response.transcription_status == JobStatus.failed.rawValue {
                     return response
                 }
+            } else if kind == "enhanced_transcript" {
+                if response.source_type != MediaSourceType.url.rawValue {
+                    return response
+                }
+
+                if response.transcription_status != JobStatus.completed.rawValue {
+                    // Wait until transcription is done, then enhancement can start.
+                } else {
+                    if response.enhanced_transcript_status == JobStatus.completed.rawValue {
+                        return response
+                    }
+
+                    if response.enhanced_transcript_status == JobStatus.failed.rawValue {
+                        return response
+                    }
+                }
+            } else if kind == "summary" {
+                if response.summary_status == JobStatus.completed.rawValue {
+                    return response
+                }
+
+                if response.summary_status == JobStatus.failed.rawValue {
+                    return response
+                }
             } else {
                 if response.breakdown_status == JobStatus.completed.rawValue {
                     return response
@@ -443,6 +655,11 @@ struct MediaItemDetailView: View {
 
         throw MediaItemActionError.pollingTimedOut
     }
+}
+
+private enum TranscriptVersion: String, CaseIterable {
+    case enhanced
+    case original
 }
 
 private struct BreakdownViewModel {
@@ -473,6 +690,7 @@ enum MediaItemActionError: LocalizedError {
     case missingSourceUrl
     case missingStoredFilename
     case missingLocalMediaFile(filename: String)
+    case missingTranscriptForSummary
     case missingTranscriptForBreakdown
     case unsupportedSourceType
     case pollingTimedOut
@@ -487,6 +705,8 @@ enum MediaItemActionError: LocalizedError {
             return "Esse item não tem arquivo local salvo."
         case let .missingLocalMediaFile(filename):
             return "Não achei o arquivo local: \(filename)"
+        case .missingTranscriptForSummary:
+            return "Antes de gerar resumo, você precisa transcrever."
         case .missingTranscriptForBreakdown:
             return "Antes de gerar breakdown, você precisa transcrever."
         case .unsupportedSourceType:

@@ -16,6 +16,8 @@ struct ContentView: View {
     private var mediaItems: [MediaItem]
 
     @State private var pasteUrlText = ""
+    @State private var selectedMediaItem: MediaItem?
+    @State private var autoTranscribeImportedIdentifier: String?
 
     @State private var isImportInProgress = false
     @State private var importErrorMessage: String?
@@ -31,11 +33,33 @@ struct ContentView: View {
                     TextField("Cole link do YouTube ou Instagram", text: $pasteUrlText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            addPastedUrlItem(shouldNavigateAndAutoTranscribe: true)
+                        }
+                        .onChange(of: pasteUrlText) { oldValue, newValue in
+                            let trimmedOldValue = oldValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let trimmedNewValue = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    Button("Adicionar") {
-                        addPastedUrlItem()
-                    }
-                    .disabled(pasteUrlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            if trimmedOldValue.isEmpty == false {
+                                return
+                            }
+
+                            if trimmedNewValue.isEmpty {
+                                return
+                            }
+
+                            if looksLikeUrl(text: trimmedNewValue) == false {
+                                return
+                            }
+
+                            addPastedUrlItem(shouldNavigateAndAutoTranscribe: true)
+                        }
+
+                    Text("Cole um link e pronto — o app já abre o item e começa a transcrever.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 if isImportInProgress {
@@ -54,16 +78,25 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(mediaItems) { item in
-                            NavigationLink {
-                                MediaItemDetailView(mediaItem: item)
+                            Button {
+                                autoTranscribeImportedIdentifier = nil
+                                selectedMediaItem = item
                             } label: {
                                 MediaItemRowView(mediaItem: item)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
             .navigationTitle("VibeRecap")
+            .navigationDestination(item: $selectedMediaItem) { item in
+                let shouldAutoTranscribe = autoTranscribeImportedIdentifier == item.importedItemIdentifier
+                MediaItemDetailView(
+                    mediaItem: item,
+                    shouldStartTranscriptionOnAppear: shouldAutoTranscribe
+                )
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Settings") {
@@ -131,7 +164,7 @@ struct ContentView: View {
         }
     }
 
-    private func addPastedUrlItem() {
+    private func addPastedUrlItem(shouldNavigateAndAutoTranscribe: Bool) {
         let trimmedUrlText = pasteUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedUrlText.isEmpty {
             return
@@ -153,12 +186,34 @@ struct ContentView: View {
             try modelContext.save()
             pasteUrlText = ""
 
+            if shouldNavigateAndAutoTranscribe {
+                autoTranscribeImportedIdentifier = importedItemIdentifier
+                selectedMediaItem = newItem
+            }
+
             Task { @MainActor in
                 await resolveTitleIfPossible(mediaItem: newItem)
             }
         } catch {
             importErrorMessage = error.localizedDescription
         }
+    }
+
+    private func looksLikeUrl(text: String) -> Bool {
+        if text.hasPrefix("http://") == false && text.hasPrefix("https://") == false {
+            return false
+        }
+
+        guard let urlValue = URL(string: text) else {
+            return false
+        }
+
+        let hostText = (urlValue.host ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if hostText.isEmpty {
+            return false
+        }
+
+        return true
     }
 
     @MainActor

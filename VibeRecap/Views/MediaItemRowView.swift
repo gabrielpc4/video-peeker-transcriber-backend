@@ -64,6 +64,7 @@ struct MediaItemRowView: View {
 
     private var statusText: String {
         let transcriptionStatus = mediaItem.transcriptionStatus
+        let summaryStatus = mediaItem.summaryStatus
         let breakdownStatus = mediaItem.breakdownStatus
 
         if breakdownStatus == .completed {
@@ -74,15 +75,23 @@ struct MediaItemRowView: View {
             return "Gerando breakdown…"
         }
 
+        if summaryStatus == .completed {
+            return "Resumo pronto"
+        }
+
+        if summaryStatus == .running {
+            return "Gerando resumo…"
+        }
+
         if transcriptionStatus == .completed {
-            return "Transcrito (pronto para breakdown)"
+            return "Transcrito"
         }
 
         if transcriptionStatus == .running {
             return "Transcrevendo…"
         }
 
-        if transcriptionStatus == .failed || breakdownStatus == .failed {
+        if transcriptionStatus == .failed || summaryStatus == .failed || breakdownStatus == .failed {
             return "Falhou"
         }
 

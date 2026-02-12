@@ -21,10 +21,15 @@ struct BackendClient {
         let title_text: String?
 
         let transcription_status: String
+        let enhanced_transcript_status: String
+        let summary_status: String
         let breakdown_status: String
 
         let detected_language: String?
         let transcript_text: String?
+        let enhanced_transcript_text: String?
+        let enhanced_transcript_error: String?
+        let summary_json: String?
         let breakdown_json: String?
 
         let last_error: String?
@@ -96,6 +101,17 @@ struct BackendClient {
 
     func startBreakdown(itemId: String) async throws -> ItemResponse {
         let url = baseUrl.appendingPathComponent("items/\(itemId)/breakdown")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (data, response) = try await urlSession.data(for: request)
+        try validateHttpResponse(response: response, data: data)
+
+        return try JSONDecoder().decode(ItemResponse.self, from: data)
+    }
+
+    func startSummary(itemId: String) async throws -> ItemResponse {
+        let url = baseUrl.appendingPathComponent("items/\(itemId)/summary")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 

@@ -22,10 +22,16 @@ final class MediaItem {
     var remoteItemIdentifier: String?
 
     var transcriptionStatusRaw: String
+    var summaryStatusRaw: String
     var breakdownStatusRaw: String
+
+    var enhancedTranscriptStatusRaw: String
 
     var detectedLanguage: String?
     var transcriptText: String?
+    var enhancedTranscriptText: String?
+    var enhancedTranscriptErrorMessage: String?
+    var summaryJson: String?
     var breakdownJson: String?
 
     var lastErrorMessage: String?
@@ -49,10 +55,16 @@ final class MediaItem {
         self.remoteItemIdentifier = nil
 
         self.transcriptionStatusRaw = JobStatus.pending.rawValue
+        self.summaryStatusRaw = JobStatus.pending.rawValue
         self.breakdownStatusRaw = JobStatus.pending.rawValue
+
+        self.enhancedTranscriptStatusRaw = JobStatus.pending.rawValue
 
         self.detectedLanguage = nil
         self.transcriptText = nil
+        self.enhancedTranscriptText = nil
+        self.enhancedTranscriptErrorMessage = nil
+        self.summaryJson = nil
         self.breakdownJson = nil
 
         self.lastErrorMessage = nil
@@ -82,6 +94,24 @@ final class MediaItem {
         }
         set {
             breakdownStatusRaw = newValue.rawValue
+        }
+    }
+
+    var summaryStatus: JobStatus {
+        get {
+            JobStatus(rawValue: summaryStatusRaw) ?? .pending
+        }
+        set {
+            summaryStatusRaw = newValue.rawValue
+        }
+    }
+
+    var enhancedTranscriptStatus: JobStatus {
+        get {
+            JobStatus(rawValue: enhancedTranscriptStatusRaw) ?? .pending
+        }
+        set {
+            enhancedTranscriptStatusRaw = newValue.rawValue
         }
     }
 }
