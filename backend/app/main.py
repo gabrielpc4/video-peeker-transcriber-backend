@@ -1,6 +1,8 @@
 import os
 import uuid
 import datetime as dt
+import subprocess
+import shutil
 from typing import Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
@@ -69,6 +71,36 @@ def create_app() -> FastAPI:
             "storage_dir": config.storage_dir,
             "content": content,
             "error": error_message,
+        }
+
+    @app.get("/debug/ytdlp")
+    def debug_ytdlp() -> dict[str, object]:
+        """
+        Debug info for yt-dlp EJS runtime setup.
+
+        WARNING: This endpoint is for private debugging only.
+        """
+
+        def which(name: str) -> str | None:
+            try:
+                return shutil.which(name)
+            except Exception:
+                return None
+
+        def run_version(cmd: list[str]) -> str | None:
+            try:
+                completed = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=10)
+                return (completed.stdout or "").strip()
+            except Exception as error:
+                return f"error: {error}"
+
+        return {
+            "yt_dlp_path": which("yt-dlp"),
+            "yt_dlp_version": run_version(["yt-dlp", "--version"]) if which("yt-dlp") else None,
+            "deno_path": which("deno"),
+            "deno_version": run_version(["deno", "--version"]) if which("deno") else None,
+            "node_path": which("node"),
+            "node_version": run_version(["node", "--version"]) if which("node") else None,
         }
 
     @app.post("/items", response_model=CreateItemResponse)

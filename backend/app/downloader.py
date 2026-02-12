@@ -43,6 +43,24 @@ def run_command(command_args: list[str]) -> None:
         raise RuntimeError(f"Command failed ({completed.returncode}): {command_text}\n\n{completed.stdout}")
 
 
+def run_command_capture_output(command_args: list[str]) -> tuple[int, str]:
+    if len(command_args) == 0:
+        raise RuntimeError("Command is empty.")
+
+    executable_name = command_args[0]
+    resolved_executable = shutil.which(executable_name)
+    if resolved_executable is None:
+        raise RuntimeError(f"Missing dependency: '{executable_name}'.")
+
+    completed = subprocess.run(
+        [resolved_executable] + command_args[1:],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    return completed.returncode, completed.stdout
+
+
 def download_with_ytdlp(
     *,
     source_url: str,
@@ -72,9 +90,12 @@ def download_with_ytdlp(
     ]
 
     # YouTube now requires an external JS runtime + EJS solver scripts for many cases.
-    # Deno is enabled by default, but we still explicitly allow pulling the solver scripts
-    # from GitHub when needed.
+    # We explicitly force a JS runtime selection and allow downloading EJS scripts.
     if is_youtube:
+        # Prefer Deno runtime (recommended by yt-dlp). If Deno is missing, yt-dlp will
+        # fail and the error output will clearly show it.
+        command_args.extend(["--js-runtimes", "deno"])
+        # Allow fetching EJS scripts from GitHub releases.
         command_args.extend(["--remote-components", "ejs:github"])
 
     # Only use Instagram cookies for Instagram URLs.
@@ -98,6 +119,20 @@ def download_with_ytdlp(
     try:
         run_command(command_args)
     except Exception as first_error:
+        # YouTube fallback: if GitHub downloads are blocked/unavailable, try npm-based
+        # remote components (works with Deno).
+        if is_youtube:
+            retry_args = [arg for arg in command_args if arg != "ejs:github"]
+            # Replace "--remote-components ejs:github" with "--remote-components ejs:npm"
+            for idx in range(len(retry_args) - 1):
+                if retry_args[idx] == "--remote-components" and retry_args[idx + 1] == "ejs:github":
+                    retry_args[idx + 1] = "ejs:npm"
+                    break
+            try:
+                run_command(retry_args)
+            except Exception:
+                raise first_error
+
         # If Instagram download fails but we are on a dev machine with Chrome logged in,
         # retry using cookies from browser (even if the file exists but is stale).
         if is_instagram:

@@ -25,6 +25,15 @@ struct BackendClient {
         let content: String?
         let error: String?
     }
+    
+    struct YtDlpDebugResponse: Decodable {
+        let yt_dlp_path: String?
+        let yt_dlp_version: String?
+        let deno_path: String?
+        let deno_version: String?
+        let node_path: String?
+        let node_version: String?
+    }
 
     struct ItemResponse: Decodable {
         let item_id: String
@@ -69,6 +78,13 @@ struct BackendClient {
         let (data, response) = try await urlSession.data(from: url)
         try validateHttpResponse(response: response, data: data)
         return try JSONDecoder().decode(YoutubeCookiesDebugResponse.self, from: data)
+    }
+    
+    func debugYtDlp() async throws -> YtDlpDebugResponse {
+        let url = baseUrl.appendingPathComponent("debug/ytdlp")
+        let (data, response) = try await urlSession.data(from: url)
+        try validateHttpResponse(response: response, data: data)
+        return try JSONDecoder().decode(YtDlpDebugResponse.self, from: data)
     }
 
     func createUrlItem(sourceUrl: String) async throws -> String {
