@@ -31,6 +31,10 @@ def create_app() -> FastAPI:
 
     os.makedirs(config.storage_dir, exist_ok=True)
 
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     @app.post("/items", response_model=CreateItemResponse)
     def create_url_item(request: CreateUrlItemRequest) -> CreateItemResponse:
         source_url = request.source_url.strip()

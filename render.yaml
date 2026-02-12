@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: videopeek-backend
+    env: docker
+    rootDir: backend
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+
+    # Persistent disk so the SQLite + downloads survive restarts/deploys.
+    disk:
+      name: data
+      mountPath: /app/data
+      sizeGB: 10
+
+    envVars:
+      - key: STORAGE_DIR
+        value: /app/data/storage
+      - key: SQLITE_PATH
+        value: /app/data/videopeek.sqlite
+      - key: INSTAGRAM_COOKIES_PATH
+        value: /app/secrets/instagram_cookies.txt
+

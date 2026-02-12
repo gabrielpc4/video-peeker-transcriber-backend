@@ -1,6 +1,28 @@
-## Deploy (fixed monthly cost)
+## Deploy (Render)
 
-This backend can be deployed on any VPS with a **fixed monthly price** (e.g. Hetzner, DigitalOcean, Linode).
+Render is the most plug-and-play option: connect the GitHub repo and it builds/runs automatically.
+
+### 1) Create the service
+
+- Go to Render → **New** → **Blueprint**
+- Select this repo: `gabrielpc4/videopeek`
+- Render will pick up `render.yaml`
+
+### 2) Add required env vars (keys)
+
+In the Render service settings, set:
+
+- `ASSEMBLYAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+
+### 3) Use it from iOS
+
+Render gives you a URL like `https://videopeek-backend.onrender.com`.
+Use that as the backend base URL in the iOS app settings.
+
+## Deploy (VPS, fixed monthly cost)
+
+This backend can also be deployed on any VPS with a **fixed monthly price** (e.g. Hetzner, DigitalOcean, Linode).
 You only pay the monthly VM price (plus whatever bandwidth/storage your provider charges).
 
 ### 1) Server prerequisites
@@ -13,7 +35,7 @@ On an Ubuntu server:
 ### 2) Deploy
 
 ```bash
-git clone git@github.com:gabrielpc4/VibeRecap.git videopeek
+git clone git@github.com:gabrielpc4/videopeek.git videopeek
 cd videopeek
 mkdir -p backend/data
 docker compose up -d --build
