@@ -6,9 +6,9 @@
 //
 
 import Foundation
+import Combine
 import SwiftUI
 
-@MainActor
 final class ConsoleLogStore: ObservableObject {
     static let shared = ConsoleLogStore()
 
@@ -24,6 +24,7 @@ final class ConsoleLogStore: ObservableObject {
 
     private init() {}
 
+    @MainActor
     func startCaptureIfNeeded() {
         if isStarted { return }
         isStarted = true
@@ -49,12 +50,13 @@ final class ConsoleLogStore: ObservableObject {
             self?.mirrorToOriginalStreams(data: data)
 
             guard let text = String(data: data, encoding: .utf8), text.isEmpty == false else { return }
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.appendText(text)
             }
         }
     }
 
+    @MainActor
     func clear() {
         lines.removeAll()
         pendingFragment = ""
@@ -72,6 +74,7 @@ final class ConsoleLogStore: ObservableObject {
         }
     }
 
+    @MainActor
     private func appendText(_ text: String) {
         // Normalize line endings and split. Keep trailing fragment to avoid chopped lines.
         let normalized = (pendingFragment + text).replacingOccurrences(of: "\r\n", with: "\n")
