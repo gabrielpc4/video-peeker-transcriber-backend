@@ -69,17 +69,33 @@ def download_with_ytdlp(
         output_template,
     ]
 
-    if os.path.exists(instagram_cookies_path):
+    # Prefer explicit cookies file (works on servers). For local dev, we can fall back to Chrome.
+    has_cookies_file = os.path.exists(instagram_cookies_path)
+    if has_cookies_file:
         command_args.extend(["--cookies", instagram_cookies_path])
     elif is_instagram:
-        # Best-effort fallback for local development: use current Chrome session cookies.
-        # This avoids requiring a separate cookies export step when the user is already
-        # logged in on Chrome.
         command_args.extend(["--cookies-from-browser", "chrome"])
 
     command_args.append(source_url)
 
-    run_command(command_args)
+    try:
+        run_command(command_args)
+    except Exception as first_error:
+        # If Instagram download fails but we are on a dev machine with Chrome logged in,
+        # retry using cookies from browser (even if the file exists but is stale).
+        if is_instagram:
+            retry_args = [arg for arg in command_args if arg not in ["--cookies", instagram_cookies_path]]
+            retry_args = [arg for arg in retry_args if arg != "--cookies-from-browser"]
+            # Ensure "--cookies-from-browser chrome" is present.
+            if "--cookies-from-browser" not in retry_args:
+                retry_args.insert(len(retry_args) - 1, "--cookies-from-browser")
+                retry_args.insert(len(retry_args) - 1, "chrome")
+            try:
+                run_command(retry_args)
+            except Exception:
+                raise first_error
+        else:
+            raise
 
     matching_files: list[str] = []
     for filename in os.listdir(output_dir):

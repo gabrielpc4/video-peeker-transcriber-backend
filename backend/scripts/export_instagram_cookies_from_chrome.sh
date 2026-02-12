@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Exports Instagram cookies from the local Chrome profile into a Netscape cookies.txt file.
-# This file is intentionally gitignored (backend/secrets/).
+# This script no longer tries to "export cookies via yt-dlp" (yt-dlp doesn't write cookies.txt).
+# Instead, it trims an existing Netscape cookies.txt to the minimal set of Instagram/Facebook
+# domains we need.
 #
 # Requirements:
-# - yt-dlp installed and available in PATH
+# - python available
 #
 # Notes:
-# - This reads cookies from your local Chrome profile. Do NOT commit the output file.
-# - On macOS you may be prompted for permission because Chrome cookies are protected.
+# - Do NOT commit the output file.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 BACKEND_DIR="$(cd -- "$SCRIPT_DIR/.." &>/dev/null && pwd)"
@@ -19,14 +19,14 @@ OUT_PATH="$OUT_DIR/instagram_cookies.txt"
 
 mkdir -p "$OUT_DIR"
 
-command -v yt-dlp >/dev/null || {
-  echo "Missing dependency: yt-dlp"
-  echo "Install with: brew install yt-dlp"
+if [[ ! -f "$OUT_PATH" ]]; then
+  echo "Missing cookies file at: $OUT_PATH"
+  echo "Create it in Netscape format (cookies.txt) and re-run this script to trim it."
   exit 1
-}
+fi
 
-echo "Exporting cookies to: $OUT_PATH"
-yt-dlp --cookies-from-browser chrome --cookies "$OUT_PATH" "https://www.instagram.com/"
-echo "Done."
+echo "Trimming cookies in-place: $OUT_PATH"
+python "$BACKEND_DIR/scripts/trim_instagram_cookies_txt.py" --in "$OUT_PATH" --out "$OUT_PATH" --in-place
+echo "Done. Backup saved as: $OUT_PATH.bak"
 echo "Keep this file private. It is gitignored at backend/secrets/."
 
