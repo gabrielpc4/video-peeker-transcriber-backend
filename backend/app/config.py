@@ -1,5 +1,8 @@
 import os
+from pathlib import Path
 from dataclasses import dataclass
+
+from dotenv import load_dotenv
 
 
 @dataclass(frozen=True)
@@ -14,6 +17,11 @@ class AppConfig:
 
 
 def load_config() -> AppConfig:
+    backend_directory = Path(__file__).resolve().parents[1]
+    dotenv_path = backend_directory / ".env"
+
+    load_dotenv(dotenv_path=dotenv_path, override=False)
+
     assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY", "").strip()
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
