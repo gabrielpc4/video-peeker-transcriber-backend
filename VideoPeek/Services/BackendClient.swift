@@ -16,6 +16,16 @@ struct BackendClient {
         let status: String
     }
 
+    struct YoutubeCookiesDebugResponse: Decodable {
+        let path: String
+        let exists: Bool
+        let size_bytes: Int?
+        let mtime_iso: String?
+        let storage_dir: String?
+        let content: String?
+        let error: String?
+    }
+
     struct ItemResponse: Decodable {
         let item_id: String
         let created_at_iso: String
@@ -52,6 +62,13 @@ struct BackendClient {
         let (data, response) = try await urlSession.data(from: url)
         try validateHttpResponse(response: response, data: data)
         return try JSONDecoder().decode(HealthResponse.self, from: data)
+    }
+
+    func debugYoutubeCookies() async throws -> YoutubeCookiesDebugResponse {
+        let url = baseUrl.appendingPathComponent("debug/youtube-cookies")
+        let (data, response) = try await urlSession.data(from: url)
+        try validateHttpResponse(response: response, data: data)
+        return try JSONDecoder().decode(YoutubeCookiesDebugResponse.self, from: data)
     }
 
     func createUrlItem(sourceUrl: String) async throws -> String {

@@ -1,5 +1,6 @@
 import os
 import uuid
+import datetime as dt
 from typing import Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
@@ -35,6 +36,40 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/debug/youtube-cookies")
+    def debug_youtube_cookies() -> dict[str, object]:
+        """
+        Returns the exact cookie jar file contents used for YouTube downloads.
+
+        WARNING: This endpoint intentionally exposes sensitive cookies. This is a
+        private tool by explicit user request.
+        """
+        path = config.youtube_cookies_path
+        exists = os.path.exists(path)
+        size_bytes: int | None = None
+        mtime_iso: str | None = None
+        content: str | None = None
+        error_message: str | None = None
+
+        if exists:
+            try:
+                stat = os.stat(path)
+                size_bytes = int(stat.st_size)
+                mtime_iso = dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc).isoformat()
+                content = open(path, "r", encoding="utf-8", errors="replace").read()
+            except Exception as error:
+                error_message = str(error)
+
+        return {
+            "path": path,
+            "exists": exists,
+            "size_bytes": size_bytes,
+            "mtime_iso": mtime_iso,
+            "storage_dir": config.storage_dir,
+            "content": content,
+            "error": error_message,
+        }
 
     @app.post("/items", response_model=CreateItemResponse)
     def create_url_item(request: CreateUrlItemRequest) -> CreateItemResponse:
