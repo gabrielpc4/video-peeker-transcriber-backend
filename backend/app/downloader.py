@@ -92,15 +92,18 @@ def download_with_ytdlp(
     return matching_files[0]
 
 
-def extract_audio_with_ffmpeg(*, input_path: str, output_dir: str, item_id: str) -> str:
+def extract_audio_with_ffmpeg(
+    *,
+    input_path: str,
+    output_dir: str,
+    item_id: str,
+    audio_channels: str = "1",
+    audio_sample_rate_hz: str = "16000",
+    audio_bitrate: str = "48k",
+) -> str:
     ensure_directory_exists(output_dir)
 
     output_path = os.path.join(output_dir, f"{item_id}.m4a")
-
-    # Why: speech transcription does not benefit from stereo; mono is smaller and faster.
-    audio_channels = "1"
-    audio_sample_rate_hz = "16000"
-    audio_bitrate = "48k"
 
     command_args = [
         "ffmpeg",

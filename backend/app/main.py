@@ -9,7 +9,7 @@ from .db import Database, initialize_database
 from .metadata import try_resolve_title
 from .models import CreateItemResponse, CreateUrlItemRequest, ItemResponse
 from .repository import ItemRepository
-from .tasks import run_breakdown_job, run_transcription_job
+from .tasks import run_breakdown_job, run_summary_job, run_transcription_job
 
 
 def create_app() -> FastAPI:
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
             storage_dir=config.storage_dir,
             instagram_cookies_path=config.instagram_cookies_path,
             assemblyai_api_key=config.assemblyai_api_key,
+            anthropic_api_key=config.anthropic_api_key,
         )
 
         latest_record = item_repository.get_item(item_id)
@@ -93,6 +94,31 @@ def create_app() -> FastAPI:
 
         background_tasks.add_task(
             run_breakdown_job,
+            item_id=item_id,
+            item_repository=item_repository,
+            anthropic_api_key=config.anthropic_api_key,
+        )
+
+        latest_record = item_repository.get_item(item_id)
+        if latest_record is None:
+            raise HTTPException(status_code=404, detail="Item not found.")
+
+        return item_repository.to_response(latest_record)
+
+    @app.post("/items/{item_id}/summary", response_model=ItemResponse)
+    def summary_item(item_id: str, background_tasks: BackgroundTasks) -> ItemResponse:
+        record = item_repository.get_item(item_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Item not found.")
+
+        if record.source_type != "url":
+            raise HTTPException(status_code=400, detail="Summary is only supported for URL items.")
+
+        if (record.transcript_text or "").strip() == "":
+            raise HTTPException(status_code=400, detail="Missing transcript_text. Run transcription first.")
+
+        background_tasks.add_task(
+            run_summary_job,
             item_id=item_id,
             item_repository=item_repository,
             anthropic_api_key=config.anthropic_api_key,

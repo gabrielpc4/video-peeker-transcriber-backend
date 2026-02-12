@@ -18,10 +18,15 @@ class ItemRecord:
     title_text: Optional[str]
 
     transcription_status: str
+    enhanced_transcript_status: str
+    summary_status: str
     breakdown_status: str
 
     detected_language: Optional[str]
     transcript_text: Optional[str]
+    enhanced_transcript_text: Optional[str]
+    enhanced_transcript_error: Optional[str]
+    summary_json: Optional[str]
     breakdown_json: Optional[str]
 
     last_error: Optional[str]
@@ -41,10 +46,10 @@ class ItemRepository:
                 INSERT INTO items (
                   item_id, created_at_iso, source_type, source_url, local_media_path,
                   title_text,
-                  transcription_status, breakdown_status,
-                  detected_language, transcript_text, breakdown_json,
+                  transcription_status, enhanced_transcript_status, summary_status, breakdown_status,
+                  detected_language, transcript_text, enhanced_transcript_text, enhanced_transcript_error, summary_json, breakdown_json,
                   last_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -55,6 +60,11 @@ class ItemRepository:
                     title_text,
                     "pending",
                     "pending",
+                    "pending",
+                    "pending",
+                    None,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -75,10 +85,10 @@ class ItemRepository:
                 INSERT INTO items (
                   item_id, created_at_iso, source_type, source_url, local_media_path,
                   title_text,
-                  transcription_status, breakdown_status,
-                  detected_language, transcript_text, breakdown_json,
+                  transcription_status, enhanced_transcript_status, summary_status, breakdown_status,
+                  detected_language, transcript_text, enhanced_transcript_text, enhanced_transcript_error, summary_json, breakdown_json,
                   last_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -89,6 +99,11 @@ class ItemRepository:
                     None,
                     "pending",
                     "pending",
+                    "pending",
+                    "pending",
+                    None,
+                    None,
+                    None,
                     None,
                     None,
                     None,
@@ -114,9 +129,14 @@ class ItemRepository:
             local_media_path=row["local_media_path"],
             title_text=row["title_text"],
             transcription_status=row["transcription_status"],
+            enhanced_transcript_status=row["enhanced_transcript_status"],
+            summary_status=row["summary_status"],
             breakdown_status=row["breakdown_status"],
             detected_language=row["detected_language"],
             transcript_text=row["transcript_text"],
+            enhanced_transcript_text=row["enhanced_transcript_text"],
+            enhanced_transcript_error=row["enhanced_transcript_error"],
+            summary_json=row["summary_json"],
             breakdown_json=row["breakdown_json"],
             last_error=row["last_error"],
         )
@@ -138,6 +158,43 @@ class ItemRepository:
     def set_transcription_failed(self, *, item_id: str, error_message: str) -> None:
         self._update(item_id=item_id, updates={"transcription_status": "failed", "last_error": error_message})
 
+    def set_enhanced_transcript_running(self, item_id: str) -> None:
+        self._update(
+            item_id=item_id,
+            updates={
+                "enhanced_transcript_status": "running",
+                "enhanced_transcript_error": None,
+            },
+        )
+
+    def set_enhanced_transcript_completed(self, *, item_id: str, enhanced_transcript_text: str) -> None:
+        self._update(
+            item_id=item_id,
+            updates={
+                "enhanced_transcript_status": "completed",
+                "enhanced_transcript_text": enhanced_transcript_text,
+                "enhanced_transcript_error": None,
+            },
+        )
+
+    def set_enhanced_transcript_failed(self, *, item_id: str, error_message: str) -> None:
+        self._update(
+            item_id=item_id,
+            updates={
+                "enhanced_transcript_status": "failed",
+                "enhanced_transcript_error": error_message,
+            },
+        )
+
+    def set_summary_running(self, item_id: str) -> None:
+        self._update(item_id=item_id, updates={"summary_status": "running", "last_error": None})
+
+    def set_summary_completed(self, *, item_id: str, summary_json: str) -> None:
+        self._update(item_id=item_id, updates={"summary_status": "completed", "summary_json": summary_json, "last_error": None})
+
+    def set_summary_failed(self, *, item_id: str, error_message: str) -> None:
+        self._update(item_id=item_id, updates={"summary_status": "failed", "last_error": error_message})
+
     def set_breakdown_running(self, item_id: str) -> None:
         self._update(item_id=item_id, updates={"breakdown_status": "running", "last_error": None})
 
@@ -155,9 +212,14 @@ class ItemRepository:
             source_url=record.source_url,
             title_text=record.title_text,
             transcription_status=record.transcription_status,
+            enhanced_transcript_status=record.enhanced_transcript_status,
+            summary_status=record.summary_status,
             breakdown_status=record.breakdown_status,
             detected_language=record.detected_language,
             transcript_text=record.transcript_text,
+            enhanced_transcript_text=record.enhanced_transcript_text,
+            enhanced_transcript_error=record.enhanced_transcript_error,
+            summary_json=record.summary_json,
             breakdown_json=record.breakdown_json,
             last_error=record.last_error,
         )

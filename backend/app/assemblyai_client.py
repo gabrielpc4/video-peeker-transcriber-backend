@@ -47,6 +47,14 @@ class AssemblyAiClient:
 
         if speaker_labels:
             payload["speaker_labels"] = True
+            # Why: diarization quality is much better on Universal-3-Pro.
+            payload["speech_models"] = ["universal-3-pro", "universal-2"]
+            # Why: some videos with multiple speakers end up clustered as 1 speaker unless we
+            # give the diarization model a stronger prior.
+            payload["speaker_options"] = {
+                "min_speakers_expected": 2,
+                "max_speakers_expected": 6,
+            }
 
         response = requests.post(url, headers={**self._headers(), "content-type": "application/json"}, json=payload)
         if response.ok is False:

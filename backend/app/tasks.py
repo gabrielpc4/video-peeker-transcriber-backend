@@ -12,7 +12,15 @@ def _looks_like_video_file(local_path: str) -> bool:
     return extension_text in [".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"]
 
 
-def run_transcription_job(*, item_id: str, item_repository: ItemRepository, storage_dir: str, instagram_cookies_path: str, assemblyai_api_key: str) -> None:
+def run_transcription_job(
+    *,
+    item_id: str,
+    item_repository: ItemRepository,
+    storage_dir: str,
+    instagram_cookies_path: str,
+    assemblyai_api_key: str,
+    anthropic_api_key: str,
+) -> None:
     record = item_repository.get_item(item_id)
     if record is None:
         raise RuntimeError("Item not found.")
@@ -51,11 +59,15 @@ def run_transcription_job(*, item_id: str, item_repository: ItemRepository, stor
             else:
                 extracted_audio_path = raw_media_path
         else:
-            # URL sources are optimized for speed (smaller audio).
+            # Why: diarization quality can drop a lot if we downmix to mono.
+            # Still keep it relatively small (AAC 96k), but preserve stereo cues.
             extracted_audio_path = extract_audio_with_ffmpeg(
                 input_path=raw_media_path,
                 output_dir=storage_dir,
                 item_id=f"{item_id}-audio",
+                audio_channels="2",
+                audio_sample_rate_hz="44100",
+                audio_bitrate="96k",
             )
 
         assembly_client = AssemblyAiClient(api_key=assemblyai_api_key)
@@ -69,6 +81,23 @@ def run_transcription_job(*, item_id: str, item_repository: ItemRepository, stor
             transcript_text=transcript_result.transcript_text,
             detected_language=transcript_result.detected_language_code,
         )
+
+        if record.source_type == "url":
+            try:
+                item_repository.set_enhanced_transcript_running(item_id)
+
+                anthropic_client = AnthropicClient(api_key=anthropic_api_key)
+                enhanced = anthropic_client.enhance_transcript_speakers(
+                    transcript_text=transcript_result.transcript_text,
+                    detected_language=transcript_result.detected_language_code,
+                )
+
+                item_repository.set_enhanced_transcript_completed(
+                    item_id=item_id,
+                    enhanced_transcript_text=enhanced.enhancedTranscriptText,
+                )
+            except Exception as error:
+                item_repository.set_enhanced_transcript_failed(item_id=item_id, error_message=str(error))
     except Exception as error:
         item_repository.set_transcription_failed(item_id=item_id, error_message=str(error))
         raise
@@ -108,5 +137,36 @@ def run_breakdown_job(*, item_id: str, item_repository: ItemRepository, anthropi
         item_repository.set_breakdown_completed(item_id=item_id, breakdown_json=breakdown_json)
     except Exception as error:
         item_repository.set_breakdown_failed(item_id=item_id, error_message=str(error))
+        raise
+
+
+def run_summary_job(*, item_id: str, item_repository: ItemRepository, anthropic_api_key: str) -> None:
+    record = item_repository.get_item(item_id)
+    if record is None:
+        raise RuntimeError("Item not found.")
+
+    if record.source_type != "url":
+        raise RuntimeError("Summary is only supported for URL items.")
+
+    if record.summary_status == "running":
+        return
+
+    transcript_text = (record.transcript_text or "").strip()
+    if transcript_text == "":
+        raise RuntimeError("Missing transcript_text. Run transcription first.")
+
+    item_repository.set_summary_running(item_id)
+
+    try:
+        anthropic_client = AnthropicClient(api_key=anthropic_api_key)
+        summary = anthropic_client.generate_video_summary(
+            transcript_text=transcript_text,
+            detected_language=record.detected_language,
+        )
+
+        summary_json = json.dumps(summary.__dict__, ensure_ascii=False, indent=2)
+        item_repository.set_summary_completed(item_id=item_id, summary_json=summary_json)
+    except Exception as error:
+        item_repository.set_summary_failed(item_id=item_id, error_message=str(error))
         raise
 

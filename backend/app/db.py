@@ -26,10 +26,15 @@ def initialize_database(database: Database) -> None:
               title_text TEXT,
 
               transcription_status TEXT NOT NULL,
+              enhanced_transcript_status TEXT NOT NULL,
+              summary_status TEXT NOT NULL,
               breakdown_status TEXT NOT NULL,
 
               detected_language TEXT,
               transcript_text TEXT,
+              enhanced_transcript_text TEXT,
+              enhanced_transcript_error TEXT,
+              summary_json TEXT,
               breakdown_json TEXT,
 
               last_error TEXT
@@ -42,6 +47,21 @@ def initialize_database(database: Database) -> None:
 
         if "title_text" not in existing_column_names:
             connection.execute("ALTER TABLE items ADD COLUMN title_text TEXT;")
+
+        if "summary_status" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN summary_status TEXT NOT NULL DEFAULT 'pending';")
+
+        if "summary_json" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN summary_json TEXT;")
+
+        if "enhanced_transcript_status" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN enhanced_transcript_status TEXT NOT NULL DEFAULT 'pending';")
+
+        if "enhanced_transcript_text" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN enhanced_transcript_text TEXT;")
+
+        if "enhanced_transcript_error" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN enhanced_transcript_error TEXT;")
 
         connection.commit()
 

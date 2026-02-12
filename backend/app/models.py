@@ -25,10 +25,15 @@ class ItemResponse(BaseModel):
     title_text: Optional[str]
 
     transcription_status: JobStatus
+    enhanced_transcript_status: JobStatus
+    summary_status: JobStatus
     breakdown_status: JobStatus
 
     detected_language: Optional[str]
     transcript_text: Optional[str]
+    enhanced_transcript_text: Optional[str]
+    enhanced_transcript_error: Optional[str]
+    summary_json: Optional[str]
     breakdown_json: Optional[str]
 
     last_error: Optional[str]
