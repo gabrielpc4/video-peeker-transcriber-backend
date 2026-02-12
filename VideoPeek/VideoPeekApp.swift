@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct VideoPeekApp: App {
     init() {
+        AppDefaults.ensureDefaultsRegistered()
         Task { @MainActor in
             ConsoleLogStore.shared.startCaptureIfNeeded()
         }

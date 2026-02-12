@@ -24,7 +24,7 @@ struct MediaItemDetailView: View {
     @State private var selectedTranscriptVersion = TranscriptVersion.enhanced
     @State private var isDeleteConfirmationPresented = false
 
-    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+    @AppStorage(AppDefaults.backendBaseUrlKey) private var backendBaseUrlText = AppDefaults.defaultBackendBaseUrl
     @AppStorage("useExtendedOutput") private var useExtendedOutput = false
 
     init(mediaItem: MediaItem, shouldStartTranscriptionOnAppear: Bool = false) {

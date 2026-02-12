@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+    @AppStorage(AppDefaults.backendBaseUrlKey) private var backendBaseUrlText = AppDefaults.defaultBackendBaseUrl
 
     var body: some View {
         Form {

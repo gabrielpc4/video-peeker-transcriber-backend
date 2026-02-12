@@ -25,7 +25,7 @@ struct ContentView: View {
 
     @State private var isSettingsPresented = false
 
-    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "https://videopeek-backend.onrender.com"
+    @AppStorage(AppDefaults.backendBaseUrlKey) private var backendBaseUrlText = AppDefaults.defaultBackendBaseUrl
 
     @State private var backendStatus: BackendStatusState = .unknown
 
@@ -96,7 +96,7 @@ struct ContentView: View {
                     consoleLogsView
                 }
             }
-            .navigationTitle("VideoPeek")
+            .navigationTitle("Video Peek")
             .navigationDestination(item: $selectedMediaItem) { item in
                 let shouldAutoTranscribe = autoTranscribeImportedIdentifier == item.importedItemIdentifier
                 MediaItemDetailView(
