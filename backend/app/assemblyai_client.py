@@ -35,15 +35,24 @@ class AssemblyAiClient:
     def create_transcript(self, upload_url: str) -> str:
         url = "https://api.assemblyai.com/v2/transcript"
 
+        trimmed_upload_url = upload_url.strip()
+        if trimmed_upload_url.startswith("http://") is False and trimmed_upload_url.startswith("https://") is False:
+            raise RuntimeError(f"AssemblyAI audio_url is not a valid URL: {trimmed_upload_url}")
+
         payload: dict = {
-            "audio_url": upload_url,
-            "language_detection": True,
-            "expected_languages": ["pt", "en"],
+            # Why: keep request minimal and compatible; language detection is default when
+            # language_code is not provided.
+            "audio_url": trimmed_upload_url,
         }
 
         response = requests.post(url, headers={**self._headers(), "content-type": "application/json"}, json=payload)
         if response.ok is False:
-            raise RuntimeError(f"AssemblyAI create transcript failed: HTTP {response.status_code}\n\n{response.text}")
+            raise RuntimeError(
+                "AssemblyAI create transcript failed.\n\n"
+                f"HTTP {response.status_code}\n\n"
+                f"audio_url: {trimmed_upload_url}\n\n"
+                f"{response.text}"
+            )
 
         transcript_id = response.json().get("id")
         if isinstance(transcript_id, str) is False or transcript_id.strip() == "":
