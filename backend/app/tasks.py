@@ -60,7 +60,8 @@ def run_transcription_job(*, item_id: str, item_repository: ItemRepository, stor
 
         assembly_client = AssemblyAiClient(api_key=assemblyai_api_key)
         upload_url = assembly_client.upload_file(extracted_audio_path)
-        transcript_id = assembly_client.create_transcript(upload_url)
+        enable_speaker_labels = record.source_type == "url"
+        transcript_id = assembly_client.create_transcript(upload_url, speaker_labels=enable_speaker_labels)
         transcript_result = assembly_client.poll_transcript(transcript_id)
 
         item_repository.set_transcription_completed(

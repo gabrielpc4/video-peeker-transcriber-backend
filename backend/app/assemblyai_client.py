@@ -32,7 +32,7 @@ class AssemblyAiClient:
 
         return upload_url
 
-    def create_transcript(self, upload_url: str) -> str:
+    def create_transcript(self, upload_url: str, *, speaker_labels: bool) -> str:
         url = "https://api.assemblyai.com/v2/transcript"
 
         trimmed_upload_url = upload_url.strip()
@@ -44,6 +44,9 @@ class AssemblyAiClient:
             # language_code is not provided.
             "audio_url": trimmed_upload_url,
         }
+
+        if speaker_labels:
+            payload["speaker_labels"] = True
 
         response = requests.post(url, headers={**self._headers(), "content-type": "application/json"}, json=payload)
         if response.ok is False:
@@ -80,7 +83,8 @@ class AssemblyAiClient:
                 transcript_text = payload.get("text") or ""
                 detected_language_code = payload.get("language_code")
 
-                transcript_text = str(transcript_text).strip()
+                transcript_text = _format_transcript_text(payload=payload, fallback_text=str(transcript_text))
+                transcript_text = transcript_text.strip()
                 if transcript_text == "":
                     raise RuntimeError("AssemblyAI completed but text is empty.")
 
@@ -98,4 +102,40 @@ class AssemblyAiClient:
                 raise RuntimeError(f"AssemblyAI transcription failed: {error_message}")
 
             time.sleep(1.0)
+
+
+def _format_transcript_text(*, payload: dict, fallback_text: str) -> str:
+    raw_utterances = payload.get("utterances")
+    if isinstance(raw_utterances, list) is False:
+        return fallback_text
+
+    formatted_blocks: list[str] = []
+
+    for utterance in raw_utterances:
+        if isinstance(utterance, dict) is False:
+            continue
+
+        speaker_value = utterance.get("speaker")
+        text_value = utterance.get("text")
+
+        if isinstance(text_value, str) is False:
+            continue
+
+        trimmed_text = text_value.strip()
+        if trimmed_text == "":
+            continue
+
+        speaker_label = "Speaker"
+        if isinstance(speaker_value, int):
+            speaker_label = f"Speaker {speaker_value}"
+        elif isinstance(speaker_value, str) and speaker_value.strip() != "":
+            speaker_label = f"Speaker {speaker_value.strip()}"
+
+        formatted_blocks.append(f"{speaker_label}: {trimmed_text}")
+
+    if len(formatted_blocks) == 0:
+        return fallback_text
+
+    # Why: readability when skimming conversations.
+    return "\n\n".join(formatted_blocks)
 
