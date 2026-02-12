@@ -23,6 +23,8 @@ def initialize_database(database: Database) -> None:
               source_url TEXT,
               local_media_path TEXT,
 
+              title_text TEXT,
+
               transcription_status TEXT NOT NULL,
               breakdown_status TEXT NOT NULL,
 
@@ -34,6 +36,12 @@ def initialize_database(database: Database) -> None:
             );
             """
         )
+
+        existing_columns = connection.execute("PRAGMA table_info(items);").fetchall()
+        existing_column_names = [row["name"] for row in existing_columns]
+
+        if "title_text" not in existing_column_names:
+            connection.execute("ALTER TABLE items ADD COLUMN title_text TEXT;")
 
         connection.commit()
 

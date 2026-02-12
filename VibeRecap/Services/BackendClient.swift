@@ -18,6 +18,8 @@ struct BackendClient {
         let source_type: String
         let source_url: String?
 
+        let title_text: String?
+
         let transcription_status: String
         let breakdown_status: String
 

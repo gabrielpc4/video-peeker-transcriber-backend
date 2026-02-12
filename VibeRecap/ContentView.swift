@@ -22,6 +22,8 @@ struct ContentView: View {
 
     @State private var isSettingsPresented = false
 
+    @AppStorage("backendBaseUrl") private var backendBaseUrlText = "http://127.0.0.1:8000"
+
     var body: some View {
         NavigationStack {
             List {
@@ -150,8 +152,51 @@ struct ContentView: View {
         do {
             try modelContext.save()
             pasteUrlText = ""
+
+            Task { @MainActor in
+                await resolveTitleIfPossible(mediaItem: newItem)
+            }
         } catch {
             importErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func resolveTitleIfPossible(mediaItem: MediaItem) async {
+        if mediaItem.sourceType != .url {
+            return
+        }
+
+        let sourceUrlText = (mediaItem.sourceUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if sourceUrlText.isEmpty {
+            return
+        }
+
+        let baseUrlText = backendBaseUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let baseUrl = URL(string: baseUrlText) else {
+            return
+        }
+
+        do {
+            let client = BackendClient(baseUrl: baseUrl)
+
+            if mediaItem.remoteItemIdentifier == nil {
+                let remoteItemIdentifier = try await client.createUrlItem(sourceUrl: sourceUrlText)
+                mediaItem.remoteItemIdentifier = remoteItemIdentifier
+                try modelContext.save()
+            }
+
+            guard let remoteItemIdentifier = mediaItem.remoteItemIdentifier else {
+                return
+            }
+
+            let itemResponse = try await client.getItem(itemId: remoteItemIdentifier)
+            if let titleText = itemResponse.title_text, titleText.isEmpty == false {
+                mediaItem.titleText = titleText
+                try modelContext.save()
+            }
+        } catch {
+            // If title lookup fails, we keep the item and show host fallback.
         }
     }
 }

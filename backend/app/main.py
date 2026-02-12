@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import AppConfig, load_config
 from .db import Database, initialize_database
+from .metadata import try_resolve_title
 from .models import CreateItemResponse, CreateUrlItemRequest, ItemResponse
 from .repository import ItemRepository
 from .tasks import run_breakdown_job, run_transcription_job
@@ -36,7 +37,8 @@ def create_app() -> FastAPI:
         if source_url == "":
             raise HTTPException(status_code=400, detail="source_url is empty.")
 
-        item_id = item_repository.create_url_item(source_url=source_url)
+        title_text = try_resolve_title(source_url)
+        item_id = item_repository.create_url_item(source_url=source_url, title_text=title_text)
         return CreateItemResponse(item_id=item_id)
 
     @app.post("/items/upload", response_model=CreateItemResponse)

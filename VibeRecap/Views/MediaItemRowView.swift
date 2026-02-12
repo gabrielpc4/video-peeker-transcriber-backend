@@ -44,10 +44,18 @@ struct MediaItemRowView: View {
 
     private var titleText: String {
         if mediaItem.sourceType == .audioFile {
-            return "Áudio"
+            return mediaItem.titleText ?? "Áudio"
         }
 
         if mediaItem.sourceType == .url {
+            if let titleText = mediaItem.titleText, titleText.isEmpty == false {
+                return titleText
+            }
+
+            if let sourceUrlText = mediaItem.sourceUrl, let urlValue = URL(string: sourceUrlText), let hostText = urlValue.host, hostText.isEmpty == false {
+                return hostText
+            }
+
             return "Link"
         }
 

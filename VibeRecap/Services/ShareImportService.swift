@@ -63,6 +63,7 @@ struct ShareImportService {
             if existingItems.isEmpty {
                 let sourceType: MediaSourceType
                 let sourceUrl = metadata.sharedUrl
+                let titleText = metadata.originalFilename
 
                 if metadata.kind == "audio" {
                     sourceType = .audioFile
@@ -79,6 +80,10 @@ struct ShareImportService {
                     sourceUrl: sourceUrl,
                     storedFilename: metadata.storedFilename
                 )
+
+                if let titleText, titleText.isEmpty == false {
+                    mediaItem.titleText = titleText
+                }
 
                 modelContext.insert(mediaItem)
                 importedCount += 1

@@ -17,6 +17,8 @@ final class MediaItem {
     var sourceUrl: String?
     var storedFilename: String?
 
+    var titleText: String?
+
     var remoteItemIdentifier: String?
 
     var transcriptionStatusRaw: String
@@ -41,6 +43,8 @@ final class MediaItem {
         self.sourceTypeRaw = sourceType.rawValue
         self.sourceUrl = sourceUrl
         self.storedFilename = storedFilename
+
+        self.titleText = nil
 
         self.remoteItemIdentifier = nil
 

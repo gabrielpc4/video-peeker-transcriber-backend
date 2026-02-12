@@ -15,6 +15,8 @@ class ItemRecord:
     source_url: Optional[str]
     local_media_path: Optional[str]
 
+    title_text: Optional[str]
+
     transcription_status: str
     breakdown_status: str
 
@@ -29,7 +31,7 @@ class ItemRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    def create_url_item(self, source_url: str) -> str:
+    def create_url_item(self, source_url: str, title_text: str | None) -> str:
         item_id = str(uuid.uuid4())
         created_at_iso = now_iso()
 
@@ -38,10 +40,11 @@ class ItemRepository:
                 """
                 INSERT INTO items (
                   item_id, created_at_iso, source_type, source_url, local_media_path,
+                  title_text,
                   transcription_status, breakdown_status,
                   detected_language, transcript_text, breakdown_json,
                   last_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -49,6 +52,7 @@ class ItemRepository:
                     "url",
                     source_url,
                     None,
+                    title_text,
                     "pending",
                     "pending",
                     None,
@@ -70,10 +74,11 @@ class ItemRepository:
                 """
                 INSERT INTO items (
                   item_id, created_at_iso, source_type, source_url, local_media_path,
+                  title_text,
                   transcription_status, breakdown_status,
                   detected_language, transcript_text, breakdown_json,
                   last_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -81,6 +86,7 @@ class ItemRepository:
                     "upload",
                     None,
                     local_media_path,
+                    None,
                     "pending",
                     "pending",
                     None,
@@ -106,6 +112,7 @@ class ItemRepository:
             source_type=row["source_type"],
             source_url=row["source_url"],
             local_media_path=row["local_media_path"],
+            title_text=row["title_text"],
             transcription_status=row["transcription_status"],
             breakdown_status=row["breakdown_status"],
             detected_language=row["detected_language"],
@@ -146,6 +153,7 @@ class ItemRepository:
             created_at_iso=record.created_at_iso,
             source_type=record.source_type,
             source_url=record.source_url,
+            title_text=record.title_text,
             transcription_status=record.transcription_status,
             breakdown_status=record.breakdown_status,
             detected_language=record.detected_language,

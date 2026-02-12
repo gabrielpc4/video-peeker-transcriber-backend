@@ -22,6 +22,8 @@ class ItemResponse(BaseModel):
     source_type: SourceType
     source_url: Optional[str]
 
+    title_text: Optional[str]
+
     transcription_status: JobStatus
     breakdown_status: JobStatus
 
