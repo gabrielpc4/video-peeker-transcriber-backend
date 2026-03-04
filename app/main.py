@@ -11,13 +11,54 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import AppConfig, load_config
 from .db import Database, initialize_database
 from .metadata import try_resolve_title
-from .models import CreateItemResponse, CreateUrlItemRequest, ItemResponse
+from .models import (
+    CreateItemResponse,
+    CreateUrlItemRequest,
+    DeviceCookie,
+    ItemResponse,
+    UploadYoutubeCookiesRequest,
+    UploadYoutubeCookiesResponse,
+)
 from .repository import ItemRepository
 from .tasks import run_breakdown_job, run_summary_job, run_transcription_job
 
 
+def _is_allowed_youtube_cookie_domain(domain: str) -> bool:
+    normalized = domain.lower().lstrip(".")
+    return (
+        normalized == "youtube.com"
+        or normalized.endswith(".youtube.com")
+        or normalized == "google.com"
+        or normalized.endswith(".google.com")
+        or normalized == "googlevideo.com"
+        or normalized.endswith(".googlevideo.com")
+        or normalized == "ytimg.com"
+        or normalized.endswith(".ytimg.com")
+    )
+
+
+def _format_device_cookie_to_netscape(cookie: DeviceCookie) -> str:
+    include_subdomains = "TRUE" if cookie.domain.startswith(".") else "FALSE"
+    secure = "TRUE" if cookie.secure else "FALSE"
+    expires_epoch = 0 if (cookie.session_only or cookie.expires_epoch is None) else max(0, int(cookie.expires_epoch))
+    domain_out = cookie.domain
+    if cookie.http_only:
+        domain_out = "#HttpOnly_" + domain_out
+    return "\t".join(
+        [
+            domain_out,
+            include_subdomains,
+            cookie.path or "/",
+            secure,
+            str(expires_epoch),
+            cookie.name,
+            cookie.value,
+        ]
+    )
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="VideoPeek Backend")
+    app = FastAPI(title="VideoPeeker Backend")
 
     app.add_middleware(
         CORSMiddleware,
@@ -72,6 +113,48 @@ def create_app() -> FastAPI:
             "content": content,
             "error": error_message,
         }
+
+    @app.post("/youtube-cookies/upload", response_model=UploadYoutubeCookiesResponse)
+    def upload_youtube_cookies(request: UploadYoutubeCookiesRequest) -> UploadYoutubeCookiesResponse:
+        deduped_by_key: dict[tuple[str, str, str], DeviceCookie] = {}
+        for cookie in request.cookies:
+            if cookie.name.strip() == "" or cookie.domain.strip() == "":
+                continue
+            if _is_allowed_youtube_cookie_domain(cookie.domain) is False:
+                continue
+            key = (cookie.domain.lower(), cookie.path or "/", cookie.name)
+            deduped_by_key[key] = cookie
+
+        kept_cookies = list(deduped_by_key.values())
+
+        if len(kept_cookies) == 0:
+            raise HTTPException(status_code=400, detail="No YouTube/Google cookies found in payload.")
+
+        lines: list[str] = []
+        lines.append("# Netscape HTTP Cookie File\n")
+        lines.append("# Uploaded from VideoPeeker mobile session\n")
+        lines.append("# This file is used by yt-dlp via --cookies\n")
+        lines.append("\n")
+
+        rendered_cookie_lines = [_format_device_cookie_to_netscape(cookie) for cookie in kept_cookies]
+        rendered_cookie_lines.sort(key=lambda line: line.split("\t")[0].lstrip("#HttpOnly_").lstrip(".").lower() + "\t" + line)
+        for cookie_line in rendered_cookie_lines:
+            lines.append(cookie_line + "\n")
+
+        output_path = config.youtube_cookies_path
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as handle:
+            handle.write("".join(lines))
+
+        stat = os.stat(output_path)
+        mtime_iso = dt.datetime.fromtimestamp(stat.st_mtime, tz=dt.timezone.utc).isoformat()
+        return UploadYoutubeCookiesResponse(
+            path=output_path,
+            written_count=len(request.cookies),
+            kept_count=len(kept_cookies),
+            dropped_count=len(request.cookies) - len(kept_cookies),
+            mtime_iso=mtime_iso,
+        )
 
     @app.get("/debug/ytdlp")
     def debug_ytdlp() -> dict[str, object]:

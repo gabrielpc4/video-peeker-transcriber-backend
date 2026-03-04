@@ -5,7 +5,7 @@ Render is the most plug-and-play option: connect the GitHub repo and it builds/r
 ### 1) Create the service
 
 - Go to Render → **New** → **Blueprint**
-- Select this repo: `gabrielpc4/videopeek`
+- Select this repo: `gabrielpc4/videopeeker-backend`
 - Render will pick up `render.yaml`
 
 ### 2) Add required env vars (keys)
@@ -17,7 +17,7 @@ In the Render service settings, set:
 
 ### 3) Use it from iOS
 
-Render gives you a URL like `https://videopeek-backend.onrender.com`.
+Render gives you a URL like `https://videopeeker-backend.onrender.com`.
 Use that as the backend base URL in the iOS app settings.
 
 ## Deploy (VPS, fixed monthly cost)
@@ -35,9 +35,9 @@ On an Ubuntu server:
 ### 2) Deploy
 
 ```bash
-git clone git@github.com:gabrielpc4/videopeek.git videopeek
-cd videopeek
-mkdir -p backend/data
+git clone git@github.com:gabrielpc4/videopeeker-backend.git
+cd videopeeker-backend
+mkdir -p data
 docker compose up -d --build
 ```
 
@@ -48,4 +48,3 @@ Backend will be available at:
 ### 3) Recommended: HTTPS + domain
 
 Put a reverse proxy (Caddy or Nginx) in front of port 8000 and enable HTTPS.
-

@@ -18,17 +18,17 @@ DerivedData/
 # Backend secrets + runtime data
 ## WARNING: secrets are committed by explicit user request.
 ## (Not recommended for real projects.)
-## backend/.env
-## backend/secrets/*
-## !backend/secrets/README.md
-backend/secrets/*.bak
-backend/storage/
-backend/*.sqlite
-backend/*.sqlite-wal
-backend/*.sqlite-shm
+## .env
+## secrets/*
+## !secrets/README.md
+secrets/*.bak
+storage/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Backend persistent data (VPS keeps its own)
-backend/data/
+data/
 
 # Python cache
 **/__pycache__/
