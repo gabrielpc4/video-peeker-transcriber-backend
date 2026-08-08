@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
+import os
 
 
 @dataclass(frozen=True)
@@ -14,16 +15,7 @@ class AppConfig:
     youtube_cookies_path: str
 
 
-#
-# WARNING
-# -------
-# Secrets are intentionally hardcoded here by explicit user request.
-
-#
-ASSEMBLYAI_API_KEY = "REDACTED_ASSEMBLYAI_KEY"
-ANTHROPIC_API_KEY = "REDACTED_ANTHROPIC_KEY"
-
-# Paths are also hardcoded (resolved relative to backend/).
+# Paths are resolved relative to the backend directory.
 # Note: Using data/ so Render's persistent disk at /app/data is used.
 STORAGE_DIR_RELATIVE = "data/storage"
 SQLITE_PATH_RELATIVE = "data/videopeeker.sqlite"
@@ -33,8 +25,8 @@ YOUTUBE_COOKIES_PATH_RELATIVE = "secrets/youtube_cookies.txt"
 
 def load_config() -> AppConfig:
     backend_directory = Path(__file__).resolve().parents[1]
-    assemblyai_api_key = ASSEMBLYAI_API_KEY.strip()
-    anthropic_api_key = ANTHROPIC_API_KEY.strip()
+    assemblyai_api_key = os.environ.get("ASSEMBLYAI_API_KEY", "").strip()
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 
     storage_dir = str((backend_directory / STORAGE_DIR_RELATIVE).resolve())
     sqlite_path = str((backend_directory / SQLITE_PATH_RELATIVE).resolve())
@@ -42,10 +34,10 @@ def load_config() -> AppConfig:
     youtube_cookies_path = str((backend_directory / YOUTUBE_COOKIES_PATH_RELATIVE).resolve())
 
     if assemblyai_api_key == "":
-        raise RuntimeError("Missing ASSEMBLYAI_API_KEY (hardcoded).")
+        raise RuntimeError("Missing ASSEMBLYAI_API_KEY environment variable.")
 
     if anthropic_api_key == "":
-        raise RuntimeError("Missing ANTHROPIC_API_KEY (hardcoded).")
+        raise RuntimeError("Missing ANTHROPIC_API_KEY environment variable.")
 
     return AppConfig(
         assemblyai_api_key=assemblyai_api_key,

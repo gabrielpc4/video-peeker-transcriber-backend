@@ -26,7 +26,12 @@ Then:
 
 ### Setup
 
-`ASSEMBLYAI_API_KEY` and `ANTHROPIC_API_KEY` are hardcoded under app/config.py and it's intentional
+Set the required API keys as environment variables before starting the server:
+
+```bash
+export ASSEMBLYAI_API_KEY="your-assemblyai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+```
 
 For private Instagram content, export cookies (Netscape format) to:
 

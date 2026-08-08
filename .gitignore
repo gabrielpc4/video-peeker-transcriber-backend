@@ -16,11 +16,11 @@ DerivedData/
 *.dSYM.zip
 
 # Backend secrets + runtime data
-## WARNING: secrets are committed by explicit user request.
-## (Not recommended for real projects.)
-## .env
-## secrets/*
-## !secrets/README.md
+.env
+.env.*
+!.env.example
+secrets/*
+!secrets/README.md
 secrets/*.bak
 storage/
 *.sqlite
