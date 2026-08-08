@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: video-peeker-transcriber
+    name: video-peeker-transcriber-backend
     env: docker
     plan: starter
     autoDeploy: true
