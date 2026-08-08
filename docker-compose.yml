@@ -11,7 +11,7 @@ services:
     environment:
       # Ensure paths inside the container match our layout
       STORAGE_DIR: "/app/data/storage"
-      SQLITE_PATH: "/app/data/videopeeker.sqlite"
+      SQLITE_PATH: "/app/data/video-transcriber.sqlite"
       INSTAGRAM_COOKIES_PATH: "/app/secrets/instagram_cookies.txt"
     volumes:
       - ./data:/app/data

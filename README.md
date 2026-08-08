@@ -1,4 +1,4 @@
-# VideoPeeker Backend
+# Video Transcriber Backend
 
 This is the backend that works for the iOS app, that lets you share:
 

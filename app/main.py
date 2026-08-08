@@ -58,7 +58,7 @@ def _format_device_cookie_to_netscape(cookie: DeviceCookie) -> str:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="VideoPeeker Backend")
+    app = FastAPI(title="Video Transcriber Backend")
 
     app.add_middleware(
         CORSMiddleware,
@@ -132,7 +132,7 @@ def create_app() -> FastAPI:
 
         lines: list[str] = []
         lines.append("# Netscape HTTP Cookie File\n")
-        lines.append("# Uploaded from VideoPeeker mobile session\n")
+        lines.append("# Uploaded from Video Transcriber mobile session\n")
         lines.append("# This file is used by yt-dlp via --cookies\n")
         lines.append("\n")
 

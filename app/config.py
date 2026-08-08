@@ -18,7 +18,7 @@ class AppConfig:
 # Paths are resolved relative to the backend directory.
 # Note: Using data/ so Render's persistent disk at /app/data is used.
 STORAGE_DIR_RELATIVE = "data/storage"
-SQLITE_PATH_RELATIVE = "data/videopeeker.sqlite"
+SQLITE_PATH_RELATIVE = "data/video-transcriber.sqlite"
 INSTAGRAM_COOKIES_PATH_RELATIVE = "secrets/instagram_cookies.txt"
 YOUTUBE_COOKIES_PATH_RELATIVE = "secrets/youtube_cookies.txt"
 
