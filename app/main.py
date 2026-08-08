@@ -58,7 +58,7 @@ def _format_device_cookie_to_netscape(cookie: DeviceCookie) -> str:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Video Transcriber Backend")
+    app = FastAPI(title="Video Peeker Transcriber Backend")
 
     app.add_middleware(
         CORSMiddleware,

@@ -5,7 +5,7 @@ Render is the most plug-and-play option: connect the GitHub repo and it builds/r
 ### 1) Create the service
 
 - Go to Render → **New** → **Blueprint**
-- Select this repo: `gabrielpc4/video-transcriber-backend`
+- Select this repo: `gabrielpc4/video-peeker-transcriber`
 - Render will pick up `render.yaml`
 
 ### 2) Add required env vars (keys)
@@ -17,7 +17,7 @@ In the Render service settings, set:
 
 ### 3) Use it from iOS
 
-Render gives you a URL like `https://video-transcriber-backend.onrender.com`.
+Render gives you a URL like `https://video-peeker-transcriber.onrender.com`.
 Use that as the backend base URL in the iOS app settings.
 
 ## Deploy (VPS, fixed monthly cost)
@@ -35,8 +35,8 @@ On an Ubuntu server:
 ### 2) Deploy
 
 ```bash
-git clone git@github.com:gabrielpc4/video-transcriber-backend.git
-cd video-transcriber-backend
+git clone git@github.com:gabrielpc4/video-peeker-transcriber.git
+cd video-peeker-transcriber
 mkdir -p data
 docker compose up -d --build
 ```
